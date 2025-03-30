@@ -37,7 +37,7 @@ graph TB
     end
 
     subgraph "Visualization"
-        RM -->|"Route Predictions"| VIZ[Streamlit Dashboard]
+        RM -->|"Route Predictions"| VIZ[Dashboard]
         VIZ -->|"Real-time"| MAP[Interactive Map]
     end
 ```
@@ -55,15 +55,22 @@ maritime-rl/
 │   ├── weather/
 │   └── environmental/
 ├── src/
-│   ├── maritime_rl/
+│   ├── maritime/
 │   │   ├── schemas/
 │   │   ├── producers/
 │   │   ├── processors/
 │   │   ├── features/
 │   │   ├── models/
 │   │   └── visualization/
+├── scripts/
+│   ├── start_services_sequential.sh
+│   ├── run_demo.sh
+│   ├── monitor_kafka.py
+│   └── start_dashboard.sh
 ├── tests/
-└── docker/
+├── docker/
+└── docs/
+    └── user_guide.md
 ```
 
 ## Data Schemas
@@ -176,8 +183,11 @@ brew install docker docker-compose
 # For K8s deployment (optional)
 brew install kubectl helm
 
-# Start all services using Docker Compose
-docker-compose -f docker/docker-compose.yml up -d
+# Create the required network
+docker network create maritime-network
+
+# Start all services in the correct sequence
+./maritime-rl/scripts/start_services_sequential.sh
 ```
 
 ### 2. Data Generation
@@ -307,80 +317,11 @@ model_deployment = PythonOperator(
 data_validation >> feature_engineering >> model_training >> model_deployment
 ```
 
-### 9. Visualization
-- Create Streamlit dashboard
+### 9. Visualization Dashboard
+- Create Flask-based dashboard
 - Implement interactive map
 - Show real-time route predictions
 - Display model performance metrics
-
-## Deployment
-
-### 1. Docker Compose (Development)
-```yaml
-# Example Docker Compose for local development
-version: '3'
-services:
-  zookeeper:
-    image: confluentinc/cp-zookeeper:latest
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-  
-  kafka:
-    image: confluentinc/cp-kafka:latest
-    depends_on:
-      - zookeeper
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9093
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-    ports:
-      - "9092:9092"
-      - "9093:9093"
-  
-  schema-registry:
-    image: confluentinc/cp-schema-registry:latest
-    depends_on:
-      - kafka
-    environment:
-      SCHEMA_REGISTRY_HOST_NAME: schema-registry
-      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
-    ports:
-      - "8081:8081"
-  
-  timescaledb:
-    image: timescale/timescaledb:latest-pg15
-    environment:
-      POSTGRES_PASSWORD: password
-      POSTGRES_USER: maritime
-      POSTGRES_DB: maritime
-    ports:
-      - "5432:5432"
-    volumes:
-      - timescaledb-data:/var/lib/postgresql/data
-```
-
-### 2. Kubernetes Deployment (Production)
-```yaml
-# Example Kafka Helm values
-kafka:
-  enabled: true
-  image: confluentinc/cp-kafka:latest
-  config:
-    num.partitions: 3
-    default.replication.factor: 1
-    offsets.topic.replication.factor: 1
-    transaction.state.log.replication.factor: 1
-    transaction.state.log.min.isr: 1
-```
-
-## Testing Strategy
-1. Unit tests for data validation
-2. Integration tests for Kafka producers and streams
-3. Performance tests for TimescaleDB
-4. Model evaluation metrics
-5. End-to-end pipeline tests
 
 ## Reinforcement Learning Details
 
@@ -432,6 +373,67 @@ The RL environment simulates maritime navigation with:
 - Deep neural network to approximate policy and value functions
 - Experience replay to improve sample efficiency
 
+## Running the System
+
+### 1. Starting Services
+Start all services in the correct sequence:
+
+```bash
+./maritime-rl/scripts/start_services_sequential.sh
+```
+
+This script ensures that:
+- Services are started in the correct dependency order
+- Each service is healthy before starting dependent services
+- Required networks and volumes are created
+
+### 2. Running the Demo
+Run the demo script to generate test data and process it:
+
+```bash
+./maritime-rl/scripts/run_demo.sh
+```
+
+The demo will:
+- Generate vessel sailing data with realistic patterns
+- Process data through Kafka Streams
+- Store processed data in TimescaleDB
+- Verify data is stored correctly
+- Start the visualization dashboard
+
+### 3. Access Points
+The system consists of several components accessible via web interfaces:
+
+- **Kafka UI**: http://localhost:8080
+- **Schema Registry**: http://localhost:8081
+- **pgAdmin**: http://localhost:5050 (admin@maritime.com / maritime_admin)
+- **Airflow**: http://localhost:8090 (admin / maritime_admin)
+- **Dashboard**: http://localhost:5500
+
+### 4. Working with Airflow
+To trigger the data pipeline and model training:
+
+1. Access Airflow at http://localhost:8090
+2. Enable both the `maritime_data_pipeline` and `maritime_model_training` DAGs
+3. Trigger the DAGs manually using the "play" button
+4. Monitor execution in the Airflow UI
+
+### 5. Monitoring
+You can monitor Kafka messages in real-time using:
+
+```bash
+./scripts/monitor_kafka.py --topics vessel_sailing_data processed_sailing_data
+```
+
+### 6. Using the Dashboard
+The dashboard provides visualization of vessel data and routes:
+
+1. Access the dashboard at http://localhost:5500
+2. View vessel positions on the map
+3. Click vessels to see detailed telemetry
+4. Compare standard routes with optimized routes
+5. Monitor fuel consumption and efficiency metrics
+
 ## Monitoring
 
 ### Key Metrics to Monitor
@@ -468,4 +470,6 @@ The RL environment simulates maritime navigation with:
 ```
 
 ## Conclusion
-This exercise provides a comprehensive example of building a reinforcement learning system for maritime route optimization. It covers the full data pipeline from ingestion through Kafka, processing with Kafka Streams, storage in TimescaleDB, feature engineering, model training with RL, and visualization of results. 
+This exercise provides a comprehensive example of building a reinforcement learning system for maritime route optimization. It covers the full data pipeline from ingestion through Kafka, processing with Kafka Streams, storage in TimescaleDB, feature engineering, model training with RL, and visualization of results.
+
+For detailed step-by-step instructions, refer to the User Guide in the `docs/` directory. 

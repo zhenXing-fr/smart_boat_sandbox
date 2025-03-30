@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Routes - Maritime Route Optimization</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+            border-radius: 8px;
+        }
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        .card-header {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .metric-label {
+            font-size: 14px;
+            color: #6c757d;
+        }
+        .comparison-table th {
+            background-color: #f8f9fa;
+        }
+        .optimization-card {
+            border-left: 4px solid;
+        }
+        .optimization-card.optimized {
+            border-left-color: #28a745;
+        }
+        .optimization-card.traditional {
+            border-left-color: #6c757d;
+        }
+        .comparison-value {
+            font-weight: bold;
+        }
+        .comparison-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        .savings-positive {
+            color: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">Maritime Route Optimization</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'dashboard' %}active{% endif %}" href="/">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'vessels' %}active{% endif %}" href="/vessels">Vessels</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'routes' %}active{% endif %}" href="/routes">Routes</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'data_quality' %}active{% endif %}" href="/data_quality">Data Quality</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'models' %}active{% endif %}" href="/models">Models</a>
+                    </li>
+                </ul>
+                <span class="navbar-text">
+                    Last updated: <span id="last-updated">{{ last_updated }}</span>
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <h1>Route Optimization</h1>
+                <p class="text-muted">Compare traditional routes with ML-optimized alternatives</p>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Route Visualization</span>
+                            <div>
+                                <select class="form-select form-select-sm" id="vessel-select" style="width: auto;">
+                                    {% for vessel in vessels %}
+                                    <option value="{{ vessel.id }}">{{ vessel.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="map"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">Route Comparison</div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0 comparison-table">
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th>Traditional</th>
+                                        <th>Optimized</th>
+                                        <th>Savings</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="comparison-stats">
+                                    <tr>
+                                        <td>Distance</td>
+                                        <td id="trad-distance">-</td>
+                                        <td id="opt-distance">-</td>
+                                        <td id="distance-savings" class="savings-positive">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td>ETA</td>
+                                        <td id="trad-eta">-</td>
+                                        <td id="opt-eta">-</td>
+                                        <td id="eta-savings" class="savings-positive">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Fuel</td>
+                                        <td id="trad-fuel">-</td>
+                                        <td id="opt-fuel">-</td>
+                                        <td id="fuel-savings" class="savings-positive">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td>CO₂</td>
+                                        <td id="trad-co2">-</td>
+                                        <td id="opt-co2">-</td>
+                                        <td id="co2-savings" class="savings-positive">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Risk</td>
+                                        <td id="trad-risk">-</td>
+                                        <td id="opt-risk">-</td>
+                                        <td id="risk-difference">-</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mt-4">
+                    <div class="card-header">Weather Conditions</div>
+                    <div class="card-body">
+                        <div id="weather-info">
+                            <div class="mb-3">
+                                <div class="comparison-label">Wind Speed</div>
+                                <div class="comparison-value">12-18 knots</div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="comparison-label">Wave Height</div>
+                                <div class="comparison-value">1.2-2.5 meters</div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="comparison-label">Current Speed</div>
+                                <div class="comparison-value">0.8-1.5 knots</div>
+                            </div>
+                            <div>
+                                <div class="comparison-label">Forecasted Changes</div>
+                                <div class="comparison-value">Wind increasing to 20-25 knots in next 24h</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">Route Comparisons</div>
+                    <div class="card-body">
+                        <div class="row">
+                        {% for comp in route_comparisons %}
+                            <div class="col-md-6 mb-4">
+                                <div class="card optimization-card {% if comp.route_type == 'Optimized' %}optimized{% else %}traditional{% endif %}">
+                                    <div class="card-body">
+                                        <h5 class="card-title">{{ comp.vessel_name }} - {{ comp.route_type }}</h5>
+                                        <div class="row mt-3">
+                                            <div class="col-6">
+                                                <div class="comparison-label">Distance</div>
+                                                <div class="comparison-value">{{ comp.distance }} nm</div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="comparison-label">Est. Time</div>
+                                                <div class="comparison-value">{{ comp.estimated_time }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="row mt-3">
+                                            <div class="col-6">
+                                                <div class="comparison-label">Fuel</div>
+                                                <div class="comparison-value">{{ comp.fuel_consumption }} L</div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="comparison-label">Weather Risk</div>
+                                                <div class="comparison-value">{{ comp.weather_risk }}</div>
+                                            </div>
+                                        </div>
+                                        {% if comp.route_type == 'Optimized' %}
+                                        <div class="row mt-3">
+                                            <div class="col-6">
+                                                <div class="comparison-label">Cost Savings</div>
+                                                <div class="comparison-value savings-positive">{{ comp.cost_savings }}</div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="comparison-label">CO₂ Reduction</div>
+                                                <div class="comparison-value savings-positive">{{ comp.co2_reduction }}</div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-light mt-5 py-3">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <p class="mb-0">Maritime Route Optimization © 2024</p>
+                </div>
+                <div class="col-md-6 text-end">
+                    <p class="mb-0 text-muted">Data latency: <span id="data-latency">5</span>s</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Vessel data from backend
+        const vesselData = {{ vessel_data|safe }};
+        
+        // Initialize the map
+        const map = L.map('map').setView([56.0, 11.0], 7);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Define route styles
+        const traditionalStyle = {
+            color: '#6c757d',
+            weight: 3,
+            opacity: 0.7
+        };
+        
+        const optimizedStyle = {
+            color: '#28a745',
+            weight: 4,
+            opacity: 0.9
+        };
+        
+        // Add legend
+        const legend = L.control({position: 'bottomright'});
+        legend.onAdd = function (map) {
+            const div = L.DomUtil.create('div', 'info legend');
+            div.innerHTML = `
+                <div style="background: white; padding: 10px; border-radius: 5px;">
+                    <div><span style="display: inline-block; height: 3px; width: 20px; background: #28a745;"></span> Optimized Route</div>
+                    <div><span style="display: inline-block; height: 3px; width: 20px; background: #6c757d;"></span> Traditional Route</div>
+                </div>
+            `;
+            return div;
+        };
+        legend.addTo(map);
+        
+        // Sample routes (in real app, these would come from backend)
+        const routes = {
+            vessel_1: {
+                traditional: [
+                    [56.10, 11.0],
+                    [56.15, 11.1],
+                    [56.20, 11.3],
+                    [56.25, 11.4],
+                    [56.30, 11.5]
+                ],
+                optimized: [
+                    [56.10, 11.0],
+                    [56.12, 11.1],
+                    [56.18, 11.3],
+                    [56.22, 11.4],
+                    [56.30, 11.5]
+                ]
+            },
+            vessel_2: {
+                traditional: [
+                    [55.7, 11.9],
+                    [55.75, 12.0],
+                    [55.8, 12.1],
+                    [55.85, 12.2],
+                    [55.9, 12.4]
+                ],
+                optimized: [
+                    [55.7, 11.9],
+                    [55.78, 12.05],
+                    [55.85, 12.15],
+                    [55.9, 12.4]
+                ]
+            },
+            vessel_3: {
+                traditional: [
+                    [57.1, 10.4],
+                    [57.15, 10.45],
+                    [57.2, 10.5],
+                    [57.25, 10.55],
+                    [57.3, 10.6]
+                ],
+                optimized: [
+                    [57.1, 10.4],
+                    [57.17, 10.47],
+                    [57.23, 10.53],
+                    [57.3, 10.6]
+                ]
+            }
+        };
+        
+        // Data for comparison table
+        const routeStats = {
+            vessel_1: {
+                traditional: {
+                    distance: "267.3 nm",
+                    eta: "20h 15m",
+                    fuel: "3,715 L",
+                    co2: "9.65 tons",
+                    risk: "Medium"
+                },
+                optimized: {
+                    distance: "245.8 nm",
+                    eta: "18h 30m",
+                    fuel: "3,250 L",
+                    co2: "8.61 tons",
+                    risk: "Low"
+                },
+                savings: {
+                    distance: "21.5 nm (8.0%)",
+                    eta: "1h 45m (8.6%)",
+                    fuel: "465 L (12.5%)",
+                    co2: "1.04 tons (10.8%)"
+                }
+            },
+            vessel_2: {
+                traditional: {
+                    distance: "210.2 nm",
+                    eta: "17h 30m",
+                    fuel: "3,136 L",
+                    co2: "8.15 tons",
+                    risk: "Low"
+                },
+                optimized: {
+                    distance: "198.5 nm",
+                    eta: "16h 45m",
+                    fuel: "2,875 L",
+                    co2: "7.54 tons",
+                    risk: "Low"
+                },
+                savings: {
+                    distance: "11.7 nm (5.6%)",
+                    eta: "45m (4.3%)",
+                    fuel: "261 L (8.3%)",
+                    co2: "0.61 tons (7.5%)"
+                }
+            },
+            vessel_3: {
+                traditional: {
+                    distance: "185.6 nm",
+                    eta: "16h 10m",
+                    fuel: "2,820 L",
+                    co2: "7.33 tons",
+                    risk: "Medium"
+                },
+                optimized: {
+                    distance: "172.4 nm",
+                    eta: "15h 00m",
+                    fuel: "2,560 L",
+                    co2: "6.65 tons",
+                    risk: "Low"
+                },
+                savings: {
+                    distance: "13.2 nm (7.1%)",
+                    eta: "1h 10m (7.2%)",
+                    fuel: "260 L (9.2%)",
+                    co2: "0.68 tons (9.3%)"
+                }
+            }
+        };
+        
+        // Current displayed routes
+        let traditionalRoute = null;
+        let optimizedRoute = null;
+        
+        // Function to update the map with routes for selected vessel
+        function updateRoutes(vesselId) {
+            // Clear existing routes
+            if (traditionalRoute) map.removeLayer(traditionalRoute);
+            if (optimizedRoute) map.removeLayer(optimizedRoute);
+            
+            // Add new routes
+            traditionalRoute = L.polyline(routes[vesselId].traditional, traditionalStyle).addTo(map);
+            optimizedRoute = L.polyline(routes[vesselId].optimized, optimizedStyle).addTo(map);
+            
+            // Add markers for start and end points
+            const startPoint = routes[vesselId].traditional[0];
+            const endPoint = routes[vesselId].traditional[routes[vesselId].traditional.length - 1];
+            
+            L.marker(startPoint).addTo(map)
+                .bindPopup('Departure Point')
+                .openPopup();
+                
+            L.marker(endPoint).addTo(map)
+                .bindPopup('Destination')
+                .openPopup();
+            
+            // Fit map to show both routes
+            const bounds = traditionalRoute.getBounds().extend(optimizedRoute.getBounds());
+            map.fitBounds(bounds);
+            
+            // Update comparison table
+            updateComparisonTable(vesselId);
+        }
+        
+        // Function to update the comparison table
+        function updateComparisonTable(vesselId) {
+            const stats = routeStats[vesselId];
+            
+            document.getElementById('trad-distance').textContent = stats.traditional.distance;
+            document.getElementById('opt-distance').textContent = stats.optimized.distance;
+            document.getElementById('distance-savings').textContent = stats.savings.distance;
+            
+            document.getElementById('trad-eta').textContent = stats.traditional.eta;
+            document.getElementById('opt-eta').textContent = stats.optimized.eta;
+            document.getElementById('eta-savings').textContent = stats.savings.eta;
+            
+            document.getElementById('trad-fuel').textContent = stats.traditional.fuel;
+            document.getElementById('opt-fuel').textContent = stats.optimized.fuel;
+            document.getElementById('fuel-savings').textContent = stats.savings.fuel;
+            
+            document.getElementById('trad-co2').textContent = stats.traditional.co2;
+            document.getElementById('opt-co2').textContent = stats.optimized.co2;
+            document.getElementById('co2-savings').textContent = stats.savings.co2;
+            
+            document.getElementById('trad-risk').textContent = stats.traditional.risk;
+            document.getElementById('opt-risk').textContent = stats.optimized.risk;
+            document.getElementById('risk-difference').textContent = 
+                stats.traditional.risk !== stats.optimized.risk 
+                ? `↓ ${stats.traditional.risk} to ${stats.optimized.risk}`
+                : "No change";
+        }
+        
+        // Handle vessel selection
+        document.getElementById('vessel-select').addEventListener('change', function(e) {
+            updateRoutes(e.target.value);
+        });
+        
+        // Initialize with first vessel
+        if (vesselData.length > 0) {
+            updateRoutes(vesselData[0].id);
+        }
+        
+        // Update the data latency counter
+        setInterval(function() {
+            const latencyElem = document.getElementById('data-latency');
+            let latency = parseInt(latencyElem.textContent);
+            latencyElem.textContent = latency + 1;
+        }, 1000);
+    </script>
+</body>
+</html> 

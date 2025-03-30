@@ -46,6 +46,25 @@
         .data-quality-low {
             color: #dc3545;
         }
+        .data-status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .data-status-indicator.real {
+            background-color: #28a745;
+        }
+        .data-status-indicator.mock {
+            background-color: #ffc107;
+        }
+        .mock-data-warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border-color: #ffeeba;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
@@ -58,29 +77,45 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link active" href="#">Dashboard</a>
+                        <a class="nav-link {% if page == 'dashboard' %}active{% endif %}" href="/">Dashboard</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">Vessels</a>
+                        <a class="nav-link {% if page == 'vessels' %}active{% endif %}" href="/vessels">Vessels</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">Routes</a>
+                        <a class="nav-link {% if page == 'routes' %}active{% endif %}" href="/routes">Routes</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">Data Quality</a>
+                        <a class="nav-link {% if page == 'data_quality' %}active{% endif %}" href="/data_quality">Data Quality</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">Models</a>
+                        <a class="nav-link {% if page == 'models' %}active{% endif %}" href="/models">Models</a>
                     </li>
                 </ul>
                 <span class="navbar-text">
-                    Last updated: <span id="last-updated">{{ last_updated }}</span>
+                    <span class="data-status-indicator {% if not use_mock_data %}real{% else %}mock{% endif %}"></span>
+                    <span>{% if not use_mock_data %}Real Data{% else %}Mock Data{% endif %}</span>
+                    | Last updated: <span id="last-updated">{{ last_updated }}</span>
                 </span>
             </div>
         </div>
     </nav>
 
     <div class="container mt-4">
+        {% if use_mock_data %}
+        <div class="alert alert-warning mock-data-warning">
+            <strong>Mock Data Mode:</strong> Currently displaying simulated data. To view real data, start the dashboard with <code>USE_MOCK_DATA=false</code> environment variable and ensure TimescaleDB connection is configured correctly.
+        </div>
+        {% endif %}
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
+
         <div class="row mb-4">
             <div class="col-md-12">
                 <h1>Vessel Monitoring Dashboard</h1>
