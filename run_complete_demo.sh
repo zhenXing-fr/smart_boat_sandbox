@@ -124,24 +124,24 @@ read -p ""
 
 # Step 10: Start the dashboard
 echo "Starting dashboard..."
-if [ -f "$SCRIPT_DIR/scripts/start_dashboard.sh" ]; then
+if [ -f "$MARITIME_DIR/scripts/start_dashboard.sh" ]; then
     # Try to open a new terminal window with the dashboard
     if [[ "$OSTYPE" == "darwin"* ]]; then
         # macOS
-        osascript -e "tell app \"Terminal\" to do script \"cd $SCRIPT_DIR && ./scripts/start_dashboard.sh\""
+        osascript -e "tell app \"Terminal\" to do script \"cd $MARITIME_DIR && ./scripts/start_dashboard.sh\""
     elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
         # Linux
         if command -v gnome-terminal &> /dev/null; then
-            gnome-terminal -- bash -c "$SCRIPT_DIR/scripts/start_dashboard.sh; exec bash"
+            gnome-terminal -- bash -c "$MARITIME_DIR/scripts/start_dashboard.sh; exec bash"
         elif command -v xterm &> /dev/null; then
-            xterm -e "bash $SCRIPT_DIR/scripts/start_dashboard.sh; exec bash" &
+            xterm -e "bash $MARITIME_DIR/scripts/start_dashboard.sh; exec bash" &
         else
             echo "Could not open a new terminal window. Please run the dashboard script manually:"
-            echo "  ./scripts/start_dashboard.sh"
+            echo "  $MARITIME_DIR/scripts/start_dashboard.sh"
         fi
     else
         echo "Please run the dashboard script manually in another terminal:"
-        echo "  ./scripts/start_dashboard.sh"
+        echo "  $MARITIME_DIR/scripts/start_dashboard.sh"
     fi
     
     echo "Dashboard should be available at: http://localhost:5500"
