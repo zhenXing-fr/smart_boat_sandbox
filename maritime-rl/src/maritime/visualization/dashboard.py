@@ -23,7 +23,7 @@ app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.secret_key = os.environ.get("SECRET_KEY", "maritime_optimization_key")
 
 # Configuration from environment variables
-USE_MOCK_DATA = os.environ.get("USE_MOCK_DATA", "true").lower() == "true"  # Default to true for development
+USE_MOCK_DATA = os.environ.get("USE_MOCK_DATA", "false").lower() == "true"  # Default to false to use real data
 KAFKA_BOOTSTRAP_SERVERS = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9093")
 PROCESSED_TOPIC = os.environ.get("PROCESSED_TOPIC", "processed_sailing_data")
 DB_HOST = os.environ.get("DB_HOST", "localhost")  # Changed from timescaledb to localhost
