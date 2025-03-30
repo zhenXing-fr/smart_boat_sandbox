@@ -49,4 +49,5 @@ logs/
 .docker-volumes/
 
 # Mac OS
-.DS_Store 
+.DS_Store
+../.DS_Store
