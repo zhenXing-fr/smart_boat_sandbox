@@ -107,7 +107,7 @@ services:
       - maritime-network
 
   timescaledb:
-    image: timescale/timescaledb-postgis:latest-pg15
+    image: parjom/timescaledb-postgis:latest
     container_name: timescaledb
     ports:
       - "5432:5432"
