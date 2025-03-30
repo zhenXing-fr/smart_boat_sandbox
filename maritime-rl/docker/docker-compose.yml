@@ -107,9 +107,7 @@ services:
       - maritime-network
 
   timescaledb:
-    build:
-      context: .
-      dockerfile: dockerfile
+    image: timescale/timescaledb-postgis:latest-pg15
     container_name: timescaledb
     ports:
       - "5432:5432"
