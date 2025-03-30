@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maritime Route Optimization - Monte Carlo Visualization</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css">
+    <style>
+        #map-container {
+            height: 600px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        #monte-carlo-map {
+            height: 100%;
+            z-index: 1;
+        }
+        .trajectory-controls {
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        .iteration-slider {
+            width: 100%;
+        }
+        .vessel-button {
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .vessel-button.active {
+            background-color: #007bff;
+            color: white;
+        }
+        .reward-legend {
+            width: 100%;
+            height: 20px;
+            margin-top: 10px;
+            margin-bottom: 5px;
+            background: linear-gradient(to right, #ff0000, #ffff00, #00ff00);
+            border-radius: 4px;
+        }
+        .legend-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #666;
+        }
+        .metrics-card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .trajectory-path {
+            stroke-width: 3px;
+            transition: opacity 0.3s ease;
+        }
+        .trajectory-point {
+            transition: opacity 0.3s ease, r 0.3s ease;
+        }
+        .hazard-circle {
+            stroke: #ff4444;
+            stroke-width: 1px;
+            fill: #ff4444;
+            fill-opacity: 0.2;
+            stroke-opacity: 0.8;
+        }
+        .destination-marker {
+            color: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h2>Maritime Route Optimization - Monte Carlo Simulation</h2>
+                <p class="text-muted">Visualizing multiple possible paths from reinforcement learning optimization</p>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-9">
+                <div id="map-container">
+                    <div id="monte-carlo-map"></div>
+                </div>
+                
+                <div class="trajectory-controls">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5>Visualization Controls</h5>
+                            
+                            <div class="form-row align-items-center">
+                                <div class="col-md-3">
+                                    <label for="selected-vessel">Select Vessel:</label>
+                                    <div id="vessel-buttons" class="btn-group" role="group">
+                                        <!-- Vessel buttons will be populated dynamically -->
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="show-all-trajectories" checked>
+                                        <label class="form-check-label" for="show-all-trajectories">
+                                            Show All Trajectories
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="show-rewards" checked>
+                                        <label class="form-check-label" for="show-rewards">
+                                            Show Rewards
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="show-hazards" checked>
+                                        <label class="form-check-label" for="show-hazards">
+                                            Show Hazards
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row mt-3">
+                                <div class="col-md-9">
+                                    <label for="selected-iteration">Highlight Iteration:</label>
+                                    <input type="range" class="iteration-slider" id="selected-iteration" min="0" max="10" value="0">
+                                </div>
+                                <div class="col-md-3">
+                                    <button id="play-button" class="btn btn-primary">
+                                        <i class="fa fa-play"></i> Play Animation
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row mt-2">
+                                <div class="col-12">
+                                    <div class="reward-legend"></div>
+                                    <div class="legend-label">
+                                        <span>Lower Reward</span>
+                                        <span>Higher Reward</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="metrics-card card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">Performance Metrics</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="vessel-metrics">
+                            <h6>Overall Success Rate:</h6>
+                            <div class="progress mb-3">
+                                <div id="overall-success-rate" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                            </div>
+                            
+                            <h6>Selected Vessel: <span id="selected-vessel-name">None</span></h6>
+                            <p>Success Rate: <span id="vessel-success-rate">0%</span></p>
+                            <p>Average Steps: <span id="vessel-avg-steps">0</span></p>
+                            <p>Hazard Hits: <span id="vessel-hazard-hits">0</span></p>
+                            <p>Fuel Depletions: <span id="vessel-fuel-depletions">0</span></p>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div id="iteration-metrics">
+                            <h6>Selected Iteration: <span id="selected-iteration-num">None</span></h6>
+                            <p>Steps: <span id="iteration-steps">0</span></p>
+                            <p>Outcome: <span id="iteration-outcome">Unknown</span></p>
+                            <p>Average Speed: <span id="iteration-avg-speed">0 knots</span></p>
+                            <p>Average Reward: <span id="iteration-avg-reward">0</span></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="metrics-card card mt-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="card-title mb-0">Trajectory Analysis</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="analysis-metrics">
+                            <canvas id="reward-chart" width="100%" height="150"></canvas>
+                            <hr>
+                            <canvas id="fuel-chart" width="100%" height="150"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.min.js"></script>
+    <script src="https://kit.fontawesome.com/a076d05399.js"></script>
+    
+    <script>
+        // Global variables
+        let map;
+        let monteCarloData = null;
+        let currentVesselId = null;
+        let currentIteration = 0;
+        let trajectoryLayers = {};
+        let pointLayers = {};
+        let hazardLayers = [];
+        let destinationMarker = null;
+        let animationInterval = null;
+        let rewardChart = null;
+        let fuelChart = null;
+        
+        // Initialize map
+        function initMap() {
+            map = L.map('monte-carlo-map').setView([57.5, 18], 6);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+        }
+        
+        // Load Monte Carlo data
+        function loadMonteCarloData() {
+            $.ajax({
+                url: '/monte_carlo/data',
+                type: 'GET',
+                dataType: 'json',
+                success: function(data) {
+                    monteCarloData = data;
+                    
+                    if (data.error) {
+                        alert('Error loading Monte Carlo data: ' + data.error);
+                        return;
+                    }
+                    
+                    // Update UI with data
+                    updateVesselButtons();
+                    updateOverallMetrics();
+                    
+                    // Select first vessel by default
+                    const vessels = Object.keys(monteCarloData.vessel_data || {});
+                    if (vessels.length > 0) {
+                        selectVessel(vessels[0]);
+                    }
+                    
+                    // Add hazards and destination to map
+                    addHazardsToMap();
+                    addDestinationToMap();
+                },
+                error: function(xhr, status, error) {
+                    alert('Error loading Monte Carlo data: ' + error);
+                }
+            });
+        }
+        
+        // Update vessel buttons
+        function updateVesselButtons() {
+            const vesselButtonsContainer = $('#vessel-buttons');
+            vesselButtonsContainer.empty();
+            
+            const vessels = Object.keys(monteCarloData.vessel_data || {});
+            vessels.forEach(vesselId => {
+                const button = $('<button>')
+                    .addClass('btn btn-outline-primary vessel-button')
+                    .attr('data-vessel-id', vesselId)
+                    .text(vesselId);
+                
+                button.on('click', function() {
+                    selectVessel(vesselId);
+                });
+                
+                vesselButtonsContainer.append(button);
+            });
+        }
+        
+        // Update overall metrics
+        function updateOverallMetrics() {
+            if (!monteCarloData) return;
+            
+            const successRate = monteCarloData.aggregate_success_rate * 100;
+            $('#overall-success-rate')
+                .css('width', successRate + '%')
+                .attr('aria-valuenow', successRate)
+                .text(successRate.toFixed(1) + '%');
+        }
+        
+        // Select vessel
+        function selectVessel(vesselId) {
+            currentVesselId = vesselId;
+            
+            // Update UI
+            $('.vessel-button').removeClass('active');
+            $(`.vessel-button[data-vessel-id="${vesselId}"]`).addClass('active');
+            $('#selected-vessel-name').text(vesselId);
+            
+            // Update vessel metrics
+            updateVesselMetrics();
+            
+            // Update slider range
+            const numIterations = monteCarloData.vessel_data[vesselId].trajectories.length;
+            $('#selected-iteration')
+                .attr('max', numIterations)
+                .val(1); // Start at iteration 1
+            
+            currentIteration = 1;
+            updateIterationMetrics();
+            
+            // Clear existing trajectories
+            clearTrajectories();
+            
+            // Add all trajectories for this vessel
+            addTrajectoriesForVessel(vesselId);
+            
+            // Update charts
+            updateTrajectoryCharts();
+        }
+        
+        // Update vessel metrics
+        function updateVesselMetrics() {
+            if (!monteCarloData || !currentVesselId) return;
+            
+            const vesselData = monteCarloData.vessel_data[currentVesselId];
+            const successRate = vesselData.success_rate * 100;
+            $('#vessel-success-rate').text(successRate.toFixed(1) + '%');
+            $('#vessel-avg-steps').text(vesselData.avg_steps.toFixed(1));
+            
+            // Count hazard hits and fuel depletions
+            let hazardHits = 0;
+            let fuelDepletions = 0;
+            vesselData.trajectories.forEach(traj => {
+                if (traj.hazard_hit) hazardHits++;
+                if (traj.fuel_depleted) fuelDepletions++;
+            });
+            
+            $('#vessel-hazard-hits').text(hazardHits);
+            $('#vessel-fuel-depletions').text(fuelDepletions);
+        }
+        
+        // Add hazards to map
+        function addHazardsToMap() {
+            // Clear existing hazard layers
+            hazardLayers.forEach(layer => map.removeLayer(layer));
+            hazardLayers = [];
+            
+            if (!monteCarloData || !monteCarloData.hazards) return;
+            
+            monteCarloData.hazards.forEach(hazard => {
+                const lat = hazard.position[0];
+                const lng = hazard.position[1];
+                const radius = hazard.radius * 111000; // Convert degrees to meters (approximate)
+                
+                const circle = L.circle([lat, lng], {
+                    radius: radius,
+                    className: 'hazard-circle',
+                    alt: hazard.description
+                }).addTo(map);
+                
+                circle.bindTooltip(hazard.description);
+                hazardLayers.push(circle);
+            });
+            
+            // Toggle hazard visibility based on checkbox
+            updateHazardVisibility();
+        }
+        
+        // Add destination to map
+        function addDestinationToMap() {
+            if (destinationMarker) {
+                map.removeLayer(destinationMarker);
+            }
+            
+            if (!monteCarloData || !monteCarloData.destination) return;
+            
+            const lat = monteCarloData.destination[0];
+            const lng = monteCarloData.destination[1];
+            
+            destinationMarker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    html: '<i class="fas fa-flag-checkered fa-2x destination-marker"></i>',
+                    iconSize: [30, 30],
+                    className: 'destination-marker-container'
+                })
+            }).addTo(map);
+            
+            destinationMarker.bindTooltip("Destination");
+        }
+        
+        // Clear all trajectory layers
+        function clearTrajectories() {
+            Object.values(trajectoryLayers).forEach(layers => {
+                layers.forEach(layer => map.removeLayer(layer));
+            });
+            
+            Object.values(pointLayers).forEach(layers => {
+                layers.forEach(layer => map.removeLayer(layer));
+            });
+            
+            trajectoryLayers = {};
+            pointLayers = {};
+        }
+        
+        // Add all trajectories for a vessel
+        function addTrajectoriesForVessel(vesselId) {
+            if (!monteCarloData || !monteCarloData.vessel_data[vesselId]) return;
+            
+            const trajectoryData = monteCarloData.vessel_data[vesselId].trajectory_data || [];
+            trajectoryLayers[vesselId] = [];
+            pointLayers[vesselId] = [];
+            
+            trajectoryData.forEach((trajectory, i) => {
+                const iteration = i + 1;
+                const path = trajectory.path;
+                const rewards = trajectory.rewards;
+                
+                // Create path layer
+                const pathLayer = L.polyline(path, {
+                    color: getOutcomeColor(trajectory),
+                    opacity: iteration === currentIteration ? 1.0 : 0.3,
+                    weight: iteration === currentIteration ? 5 : 3,
+                    className: 'trajectory-path'
+                }).addTo(map);
+                
+                pathLayer.bindTooltip(`Iteration ${iteration}: ${getOutcomeText(trajectory)}`);
+                trajectoryLayers[vesselId].push(pathLayer);
+                
+                // Create point layers for rewards
+                const pointsForIteration = [];
+                path.forEach((point, j) => {
+                    if (j % 10 === 0 || j === path.length - 1) { // Only show every 10th point to avoid clutter
+                        const reward = rewards[j] || 0;
+                        const rewardColor = getRewardColor(reward);
+                        const radius = Math.abs(reward) * 0.5 + 3; // Scale radius based on reward magnitude
+                        
+                        const circle = L.circle(point, {
+                            radius: radius * 1000, // Convert to meters
+                            color: rewardColor,
+                            fillColor: rewardColor,
+                            fillOpacity: 0.7,
+                            opacity: iteration === currentIteration ? 1.0 : 0.3,
+                            className: 'trajectory-point'
+                        }).addTo(map);
+                        
+                        circle.bindTooltip(`Step ${j}: Reward ${reward.toFixed(2)}`);
+                        pointsForIteration.push(circle);
+                    }
+                });
+                
+                pointLayers[vesselId].push(pointsForIteration);
+            });
+            
+            // Update trajectory visibility
+            updateTrajectoryVisibility();
+            updateRewardVisibility();
+        }
+        
+        // Update iteration metrics
+        function updateIterationMetrics() {
+            if (!monteCarloData || !currentVesselId) return;
+            
+            const iteration = currentIteration;
+            $('#selected-iteration-num').text(iteration);
+            
+            const trajectoryData = monteCarloData.vessel_data[currentVesselId].trajectory_data || [];
+            if (iteration > 0 && iteration <= trajectoryData.length) {
+                const trajectory = trajectoryData[iteration - 1];
+                
+                $('#iteration-steps').text(trajectory.steps);
+                $('#iteration-outcome').text(getOutcomeText(trajectory));
+                
+                // Calculate average speed and reward
+                const avgSpeed = trajectory.speeds.reduce((sum, speed) => sum + speed, 0) / trajectory.speeds.length;
+                const avgReward = trajectory.rewards.reduce((sum, reward) => sum + reward, 0) / trajectory.rewards.length;
+                
+                $('#iteration-avg-speed').text(avgSpeed.toFixed(2) + ' knots');
+                $('#iteration-avg-reward').text(avgReward.toFixed(2));
+                
+                // Highlight selected trajectory
+                highlightTrajectory(currentVesselId, iteration);
+            }
+        }
+        
+        // Highlight a specific trajectory
+        function highlightTrajectory(vesselId, iteration) {
+            if (!trajectoryLayers[vesselId]) return;
+            
+            trajectoryLayers[vesselId].forEach((layer, i) => {
+                const isSelected = i + 1 === iteration;
+                layer.setStyle({
+                    opacity: isSelected ? 1.0 : 0.3,
+                    weight: isSelected ? 5 : 3
+                });
+            });
+            
+            pointLayers[vesselId].forEach((points, i) => {
+                const isSelected = i + 1 === iteration;
+                points.forEach(point => {
+                    point.setStyle({
+                        opacity: isSelected ? 1.0 : 0.3,
+                        fillOpacity: isSelected ? 0.7 : 0.3
+                    });
+                });
+            });
+        }
+        
+        // Update trajectory visibility based on checkbox
+        function updateTrajectoryVisibility() {
+            const showAll = $('#show-all-trajectories').is(':checked');
+            
+            if (!currentVesselId || !trajectoryLayers[currentVesselId]) return;
+            
+            trajectoryLayers[currentVesselId].forEach((layer, i) => {
+                const isSelected = i + 1 === currentIteration;
+                if (showAll || isSelected) {
+                    layer.setStyle({ opacity: isSelected ? 1.0 : 0.3 });
+                } else {
+                    layer.setStyle({ opacity: 0 });
+                }
+            });
+            
+            pointLayers[currentVesselId].forEach((points, i) => {
+                const isSelected = i + 1 === currentIteration;
+                points.forEach(point => {
+                    if (showAll || isSelected) {
+                        point.setStyle({ 
+                            opacity: isSelected ? 1.0 : 0.3,
+                            fillOpacity: isSelected ? 0.7 : 0.3
+                        });
+                    } else {
+                        point.setStyle({ opacity: 0, fillOpacity: 0 });
+                    }
+                });
+            });
+        }
+        
+        // Update reward visibility based on checkbox
+        function updateRewardVisibility() {
+            const showRewards = $('#show-rewards').is(':checked');
+            
+            if (!currentVesselId || !pointLayers[currentVesselId]) return;
+            
+            pointLayers[currentVesselId].forEach(points => {
+                points.forEach(point => {
+                    if (showRewards) {
+                        point.setStyle({ opacity: point.options.opacity, fillOpacity: point.options.fillOpacity });
+                    } else {
+                        point.setStyle({ opacity: 0, fillOpacity: 0 });
+                    }
+                });
+            });
+        }
+        
+        // Update hazard visibility based on checkbox
+        function updateHazardVisibility() {
+            const showHazards = $('#show-hazards').is(':checked');
+            
+            hazardLayers.forEach(layer => {
+                if (showHazards) {
+                    layer.setStyle({ opacity: 0.8, fillOpacity: 0.2 });
+                } else {
+                    layer.setStyle({ opacity: 0, fillOpacity: 0 });
+                }
+            });
+        }
+        
+        // Get color based on trajectory outcome
+        function getOutcomeColor(trajectory) {
+            if (trajectory.destination_reached) {
+                return '#28a745'; // Success - green
+            } else if (trajectory.hazard_hit) {
+                return '#dc3545'; // Hazard hit - red
+            } else if (trajectory.fuel_depleted) {
+                return '#ffc107'; // Fuel depleted - yellow
+            } else {
+                return '#6c757d'; // Other - gray
+            }
+        }
+        
+        // Get text description of trajectory outcome
+        function getOutcomeText(trajectory) {
+            if (trajectory.destination_reached) {
+                return 'Destination Reached';
+            } else if (trajectory.hazard_hit) {
+                return 'Hazard Hit';
+            } else if (trajectory.fuel_depleted) {
+                return 'Fuel Depleted';
+            } else {
+                return 'Incomplete';
+            }
+        }
+        
+        // Get color based on reward value
+        function getRewardColor(reward) {
+            if (reward > 0) {
+                // Positive reward - green with intensity based on magnitude
+                const intensity = Math.min(1, reward / 10);
+                return `rgba(0, ${Math.floor(255 * intensity)}, 0, 0.7)`;
+            } else {
+                // Negative reward - red with intensity based on magnitude
+                const intensity = Math.min(1, Math.abs(reward) / 10);
+                return `rgba(${Math.floor(255 * intensity)}, 0, 0, 0.7)`;
+            }
+        }
+        
+        // Update charts for trajectory analysis
+        function updateTrajectoryCharts() {
+            if (!monteCarloData || !currentVesselId) return;
+            
+            const trajectoryData = monteCarloData.vessel_data[currentVesselId].trajectory_data || [];
+            if (currentIteration > 0 && currentIteration <= trajectoryData.length) {
+                const trajectory = trajectoryData[currentIteration - 1];
+                
+                // Update reward chart
+                updateRewardChart(trajectory);
+                
+                // Update fuel chart
+                updateFuelChart(trajectory);
+            }
+        }
+        
+        // Update reward chart
+        function updateRewardChart(trajectory) {
+            const ctx = document.getElementById('reward-chart').getContext('2d');
+            
+            if (rewardChart) {
+                rewardChart.destroy();
+            }
+            
+            const rewards = trajectory.rewards;
+            const labels = Array.from({ length: rewards.length }, (_, i) => i + 1);
+            
+            rewardChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Reward',
+                        data: rewards,
+                        borderColor: '#007bff',
+                        backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    title: {
+                        display: true,
+                        text: 'Rewards Over Time'
+                    },
+                    scales: {
+                        xAxes: [{
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Step'
+                            }
+                        }],
+                        yAxes: [{
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Reward'
+                            }
+                        }]
+                    }
+                }
+            });
+        }
+        
+        // Update fuel chart
+        function updateFuelChart(trajectory) {
+            const ctx = document.getElementById('fuel-chart').getContext('2d');
+            
+            if (fuelChart) {
+                fuelChart.destroy();
+            }
+            
+            const fuelLevels = trajectory.fuel_levels;
+            const labels = Array.from({ length: fuelLevels.length }, (_, i) => i + 1);
+            
+            fuelChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Fuel Level',
+                        data: fuelLevels,
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    title: {
+                        display: true,
+                        text: 'Fuel Consumption'
+                    },
+                    scales: {
+                        xAxes: [{
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Step'
+                            }
+                        }],
+                        yAxes: [{
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Fuel Level'
+                            }
+                        }]
+                    }
+                }
+            });
+        }
+        
+        // Play animation of iterations
+        function playAnimation() {
+            if (animationInterval) {
+                clearInterval(animationInterval);
+                animationInterval = null;
+                $('#play-button').html('<i class="fa fa-play"></i> Play Animation');
+                return;
+            }
+            
+            $('#play-button').html('<i class="fa fa-pause"></i> Pause Animation');
+            
+            const maxIteration = parseInt($('#selected-iteration').attr('max'));
+            
+            animationInterval = setInterval(() => {
+                currentIteration = (currentIteration % maxIteration) + 1;
+                $('#selected-iteration').val(currentIteration);
+                updateIterationMetrics();
+                updateTrajectoryCharts();
+            }, 1000);
+        }
+        
+        // Initialize the page
+        $(document).ready(function() {
+            // Initialize map
+            initMap();
+            
+            // Load Monte Carlo data
+            loadMonteCarloData();
+            
+            // Set up event handlers
+            $('#selected-iteration').on('input', function() {
+                currentIteration = parseInt($(this).val());
+                updateIterationMetrics();
+                updateTrajectoryCharts();
+            });
+            
+            $('#show-all-trajectories').on('change', updateTrajectoryVisibility);
+            $('#show-rewards').on('change', updateRewardVisibility);
+            $('#show-hazards').on('change', updateHazardVisibility);
+            $('#play-button').on('click', playAnimation);
+        });
+    </script>
+</body>
+</html> 

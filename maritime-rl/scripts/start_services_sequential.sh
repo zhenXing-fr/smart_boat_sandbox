@@ -116,12 +116,6 @@ if ! AIRFLOW_UID=${AIRFLOW_UID} docker-compose -f docker/docker-compose.yml ps t
     fi
 fi
 
-# 5b. Start pgAdmin
-log_status "5b. Starting pgAdmin..."
-AIRFLOW_UID=${AIRFLOW_UID} docker-compose -f docker/docker-compose.yml up -d pgadmin
-log_status "Waiting for pgAdmin to initialize..."
-wait_for_service pgadmin 15
-
 # 6. Start Airflow Postgres
 log_status "6. Starting Airflow Postgres..."
 AIRFLOW_UID=${AIRFLOW_UID} docker-compose -f docker/docker-compose.yml up -d airflow-postgres

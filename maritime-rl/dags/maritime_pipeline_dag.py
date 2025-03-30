@@ -97,8 +97,19 @@ with DAG(
     # Task to check Kafka topics exist - Using PythonOperator instead of BashOperator with docker
     check_kafka_topics = PythonOperator(
         task_id="check_kafka_topics",
-        python_callable=check_kafka_topics_fn,
-        provide_context=True,
+        bash_command=f"""
+            echo "Checking Kafka topics..."
+            TOPICS=$(docker exec -it kafka kafka-topics --bootstrap-server localhost:9092 --list)
+            if [[ $TOPICS != *"vessel_sailing_data"* ]]; then
+                echo "vessel_sailing_data topic does not exist!"
+                exit 1
+            fi
+            if [[ $TOPICS != *"processed_sailing_data"* ]]; then
+                echo "Creating processed_sailing_data topic..."
+                docker exec -it kafka kafka-topics --bootstrap-server localhost:9092 --create --topic processed_sailing_data --partitions 3 --replication-factor 1
+            fi
+            echo "Kafka topics check completed."
+        """,
     )
     
     # Task to run the sailing data processor
@@ -108,11 +119,11 @@ with DAG(
             echo "Starting sailing data processor..."
             cd {project_path}
             source .venv/bin/activate
-            python -m src.maritime_rl.processors.sailing_processor \\
-                --bootstrap-servers localhost:9093 \\
-                --schema-registry-url http://localhost:8081 \\
-                --input-topic vessel_sailing_data \\
-                --output-topic processed_sailing_data \\
+            python -m src.maritime.processors.sailing_processor \
+                --bootstrap-servers localhost:9093 \
+                --schema-registry-url http://localhost:8081 \
+                --input-topic vessel_sailing_data \
+                --output-topic processed_sailing_data \
                 --duration 600
             echo "Sailing data processor finished."
         """.format(project_path=PROJECT_PATH),
@@ -123,34 +134,28 @@ with DAG(
         """Check the quality of processed data."""
         from kafka import KafkaConsumer
         import json
+        import os
+        import subprocess
         
-        print("Checking data quality...")
-        bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
+        # Run a Kafka consumer to get a sample of processed messages
+        cmd = [
+            "docker", "exec", "-it", "kafka",
+            "kafka-console-consumer",
+            "--bootstrap-server", "localhost:9092",
+            "--topic", "processed_sailing_data",
+            "--from-beginning",
+            "--max-messages", "10",
+            "--property", "print.key=true",
+            "--property", "print.value=true"
+        ]
         
         try:
-            # Create consumer
-            consumer = KafkaConsumer(
-                'processed_sailing_data',
-                bootstrap_servers=bootstrap_servers,
-                auto_offset_reset='earliest',
-                enable_auto_commit=False,
-                group_id='maritime-data-quality',
-                value_deserializer=lambda x: json.loads(x.decode('utf-8')),
-                consumer_timeout_ms=10000  # Stop after 10 seconds
-            )
+            # Run the command and capture output
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            output = result.stdout
             
-            # Read messages
-            messages = []
-            for message in consumer:
-                messages.append(message.value)
-                if len(messages) >= 10:
-                    break
-            
-            consumer.close()
-            
-            # Check message count
-            message_count = len(messages)
-            print(f"Found {message_count} messages")
+            # Count messages
+            message_count = output.count("\n") // 2  # Each message has key and value
             
             if message_count < 5:
                 context['ti'].xcom_push(key='data_quality', value='poor')

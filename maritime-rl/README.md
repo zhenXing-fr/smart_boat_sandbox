@@ -77,13 +77,9 @@ maritime-rl/
 │       └── visualization/ # Dashboard and visualization
 ├── docker/                # Docker configuration
 │   ├── docker-compose.yml         # Main services
-│   ├── docker-compose-airflow.yml # Airflow services
 │   └── init-db.sql                # Database initialization
 ├── scripts/               # Helper scripts
-│   ├── start_producer.sh  # Start data producers
-│   ├── start_airflow.sh   # Start Airflow services
-│   ├── start_dashboard.sh # Start visualization dashboard
-│   └── psql.sh            # Connect to TimescaleDB
+│   └── start_services_sequences.sh   # Launch all services in sequences
 ├── dags/                  # Airflow DAGs
 ├── .env.example           # Environment variables template
 ├── .gitignore             # Git ignore file
@@ -97,25 +93,20 @@ The project uses several services that run in Docker containers:
 
 ### Starting the Infrastructure
 
-For reliable startup of all services, use the sequential startup script:
+1. Start all services:
+   ```bash
+   ./script/start_services_sequential.sh
+   ```
 
-```bash
-./scripts/start_services_sequential.sh
-```
-
-This script starts the services in the optimal order, ensuring dependencies are healthy before starting dependent services:
-
-1. Zookeeper
-2. Kafka
-3. Schema Registry
-4. Kafka UI
-5. TimescaleDB
-6. pgAdmin
-7. Airflow Postgres
-8. Airflow Initialization
-9. Airflow Webserver & Scheduler
-
-> The script includes health checks and robust error handling to ensure reliable startup of complex dependencies.
+   This will start:
+   - Zookeeper
+   - Kafka
+   - Schema Registry
+   - Kafka UI
+   - TimescaleDB
+   - Airflow-postgres
+   - Airflow-scheduler
+   - Airflow-webserver
 
 ### Accessing the Services
 
@@ -130,61 +121,24 @@ After startup, the following services are available:
   - Username: maritime
   - Password: password
   - Database: maritime
+- **Airflow**:
+  - Username: admin
+  - Password: maritime_admin
 
-### Database Management with pgAdmin
-
-The setup includes pgAdmin for easy database management:
-
-1. After starting services, configure pgAdmin connections automatically:
-   ```bash
-   ./scripts/setup_pgadmin_connections.sh
-   ```
-
-2. Access pgAdmin at http://localhost:5050 and log in
-   - The script creates connections to both TimescaleDB and Airflow databases
-   - You can browse tables, run queries, and visualize data
-
-### Troubleshooting Infrastructure Issues
-
-If you encounter issues with the infrastructure:
-
-1. For TimescaleDB issues:
-   ```bash
-   ./scripts/reset_timescaledb.sh
-   ```
-
-2. For detailed service logs:
-   ```bash
-   docker logs <service-name>
-   # Example: docker logs timescaledb
-   ```
-
-3. To restart a specific service:
-   ```bash
-   docker-compose -f docker/docker-compose.yml restart <service-name>
-   ```
+Note run below script if airflow init fail
+```
+docker exec -it airflow-webserver airflow users create \
+  --username admin \
+  --firstname Admin \
+  --lastname User \
+  --role Admin \
+  --email admin@maritime.com \
+  --password maritime_admin
+```
 
 ## Running the Data Pipeline
 
-### 1. Using Convenience Scripts
-
-The project includes scripts to easily start different components:
-
-```bash
-# Start infrastructure services and producers
-./scripts/start_producer.sh
-
-# Start Airflow for pipeline orchestration
-./scripts/start_airflow.sh
-
-# Start the visualization dashboard
-./scripts/start_dashboard.sh
-
-# Connect to TimescaleDB
-./scripts/psql.sh
-```
-
-### 2. Manual Data Producer Start
+### 1. Manual Data Producer Start
 
 Run the sailing data producer to generate synthetic vessel data:
 

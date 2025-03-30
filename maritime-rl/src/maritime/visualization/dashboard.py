@@ -12,6 +12,9 @@ import psycopg2
 from flask import Flask, render_template, jsonify, flash, request
 from kafka import KafkaConsumer
 
+# Import Monte Carlo visualization
+from .monte_carlo_viz import register_monte_carlo_routes
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -563,45 +566,26 @@ def get_aggregate_metrics() -> Dict[str, Any]:
 
 
 @app.route("/")
-def dashboard():
-    """Render the dashboard."""
-    now = datetime.datetime.now()
-    
-    # Get vessel and route data
+def index():
+    """Route for dashboard home page."""
     vessels = get_vessel_data()
-    vessel_data_json = json.dumps(vessels)
+    recent_data = get_processed_data(10)  # Get the 10 most recent records
     
-    # Get recent data points
-    recent_data = get_processed_data(limit=10)
-    
-    # Get quality metrics for chart
-    quality_labels, quality_valid_data, quality_invalid_data = get_quality_metrics()
-    
-    # Get fuel consumption data for chart
-    fuel_labels, fuel_data, optimized_fuel_data = get_fuel_consumption_data()
-    
-    # Get aggregate metrics
-    metrics = get_aggregate_metrics()
+    quality_metrics = get_quality_metrics()
+    fuel_consumption = get_fuel_consumption_data()
     
     return render_template(
-        "dashboard_template.html",
-        page="dashboard",
-        last_updated=now.strftime("%Y-%m-%d %H:%M:%S"),
+        'dashboard_template.html',
+        page='dashboard',
         vessels=vessels,
-        vessel_data=vessel_data_json,
+        active_vessels=len(vessels),
+        data_quality_pct=int(quality_metrics[1][-1]),
+        avg_fuel_efficiency="{:.2f}".format(fuel_consumption[1][-1]),
+        optimization_savings="{:.1f}".format(fuel_consumption[2][-1] - fuel_consumption[1][-1]),
         recent_data=recent_data,
-        quality_labels=json.dumps(quality_labels),
-        quality_valid_data=json.dumps(quality_valid_data),
-        quality_invalid_data=json.dumps(quality_invalid_data),
-        fuel_labels=json.dumps(fuel_labels),
-        fuel_data=json.dumps(fuel_data),
-        optimized_fuel_data=json.dumps(optimized_fuel_data),
-        active_vessels=metrics["active_vessels"],
-        data_quality_pct=metrics["data_quality_pct"],
-        avg_fuel_efficiency=metrics["avg_fuel_efficiency"],
-        optimization_savings=metrics["optimization_savings"],
-        data_latency=metrics["data_latency"],
         use_mock_data=USE_MOCK_DATA,
+        last_updated=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        monte_carlo_url="/monte_carlo_page"
     )
 
 
@@ -858,6 +842,20 @@ def api_recent_data():
     """API endpoint to get recent data points."""
     recent_data = get_processed_data(limit=50)
     return jsonify(recent_data)
+
+
+# Register Monte Carlo routes with app
+register_monte_carlo_routes(app)
+
+@app.route('/monte_carlo_page')
+def monte_carlo_page():
+    """Render the Monte Carlo visualization page."""
+    return render_template(
+        'monte_carlo_template.html',
+        page='monte_carlo',
+        use_mock_data=USE_MOCK_DATA,
+        last_updated=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    )
 
 
 def main():
