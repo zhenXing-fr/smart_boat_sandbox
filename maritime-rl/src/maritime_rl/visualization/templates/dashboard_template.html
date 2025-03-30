@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Maritime Route Optimization Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+            border-radius: 8px;
+        }
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        .card-header {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .metric-label {
+            font-size: 14px;
+            color: #6c757d;
+        }
+        .vessel-marker {
+            border-radius: 50%;
+            width: 12px;
+            height: 12px;
+            background-color: #007bff;
+            border: 2px solid white;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+        .data-quality-high {
+            color: #28a745;
+        }
+        .data-quality-medium {
+            color: #ffc107;
+        }
+        .data-quality-low {
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">Maritime Route Optimization</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Vessels</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Routes</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Data Quality</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Models</a>
+                    </li>
+                </ul>
+                <span class="navbar-text">
+                    Last updated: <span id="last-updated">{{ last_updated }}</span>
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <h1>Vessel Monitoring Dashboard</h1>
+                <p class="text-muted">Real-time tracking and route optimization for maritime vessels</p>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header">Active Vessels</div>
+                    <div class="card-body text-center">
+                        <div class="metric-value" id="active-vessels">{{ active_vessels }}</div>
+                        <div class="metric-label">Currently transmitting</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header">Data Quality</div>
+                    <div class="card-body text-center">
+                        <div class="metric-value" id="data-quality">{{ data_quality_pct }}%</div>
+                        <div class="metric-label">Average quality score</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header">Fuel Efficiency</div>
+                    <div class="card-body text-center">
+                        <div class="metric-value" id="fuel-efficiency">{{ avg_fuel_efficiency }}</div>
+                        <div class="metric-label">Avg. liters/nautical mile</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header">Optimization Savings</div>
+                    <div class="card-body text-center">
+                        <div class="metric-value" id="optimization-savings">{{ optimization_savings }}%</div>
+                        <div class="metric-label">Est. fuel reduction</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Live Vessel Map</span>
+                            <div>
+                                <select class="form-select form-select-sm" id="map-filter" style="width: auto;">
+                                    <option value="all">All Vessels</option>
+                                    {% for vessel in vessels %}
+                                    <option value="{{ vessel.id }}">{{ vessel.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="map"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">Vessel Status</div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush" id="vessel-list">
+                            {% for vessel in vessels %}
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">{{ vessel.name }}</h6>
+                                    <small class="text-muted">{{ vessel.last_update }}</small>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <small>Speed: {{ vessel.speed }} knots</small>
+                                    <small>Heading: {{ vessel.heading }}°</small>
+                                </div>
+                                <div class="progress mt-2" style="height: 5px;">
+                                    <div class="progress-bar 
+                                        {% if vessel.quality_score >= 0.8 %}bg-success
+                                        {% elif vessel.quality_score >= 0.6 %}bg-warning
+                                        {% else %}bg-danger{% endif %}" 
+                                        role="progressbar" 
+                                        style="width: {{ vessel.quality_score * 100 }}%">
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">Data Quality Metrics</div>
+                    <div class="card-body">
+                        <canvas id="data-quality-chart" height="250"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">Fuel Consumption Trends</div>
+                    <div class="card-body">
+                        <canvas id="fuel-trend-chart" height="250"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Recent Data</span>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary" id="refresh-data">
+                                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>Vessel</th>
+                                        <th>Position</th>
+                                        <th>Speed</th>
+                                        <th>Heading</th>
+                                        <th>Fuel</th>
+                                        <th>Quality</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recent-data">
+                                    {% for row in recent_data %}
+                                    <tr>
+                                        <td>{{ row.timestamp }}</td>
+                                        <td>{{ row.vessel_name }}</td>
+                                        <td>{{ row.position }}</td>
+                                        <td>{{ row.speed }} knots</td>
+                                        <td>{{ row.heading }}°</td>
+                                        <td>{{ row.fuel_consumption }}</td>
+                                        <td>
+                                            <span class="badge rounded-pill 
+                                                {% if row.quality_score >= 0.8 %}bg-success
+                                                {% elif row.quality_score >= 0.6 %}bg-warning
+                                                {% else %}bg-danger{% endif %}">
+                                                {{ row.quality_score }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-light mt-5 py-3">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <p class="mb-0">Maritime Route Optimization © 2024</p>
+                </div>
+                <div class="col-md-6 text-end">
+                    <p class="mb-0 text-muted">Data latency: <span id="data-latency">{{ data_latency }}</span>s</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize the map
+        const map = L.map('map').setView([56.0, 11.0], 7);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Sample data for vessels (would be replaced by real data)
+        const vesselData = {{ vessel_data|safe }};
+        
+        // Add vessels to map
+        const vesselMarkers = {};
+        const vesselRoutes = {};
+        
+        vesselData.forEach(vessel => {
+            // Create marker for vessel position
+            const marker = L.circleMarker([vessel.lat, vessel.lng], {
+                radius: 6,
+                fillColor: getQualityColor(vessel.quality_score),
+                color: "#fff",
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.8
+            }).addTo(map);
+            
+            marker.bindPopup(`
+                <strong>${vessel.name}</strong><br>
+                Speed: ${vessel.speed} knots<br>
+                Heading: ${vessel.heading}°<br>
+                Fuel: ${vessel.fuel_consumption} L/h<br>
+                Quality: ${(vessel.quality_score * 100).toFixed(1)}%
+            `);
+            
+            vesselMarkers[vessel.id] = marker;
+            
+            // Add route if available
+            if (vessel.route && vessel.route.length > 0) {
+                const routeLine = L.polyline(vessel.route, {
+                    color: getQualityColor(vessel.quality_score),
+                    dashArray: '5, 5',
+                    weight: 2
+                }).addTo(map);
+                vesselRoutes[vessel.id] = routeLine;
+            }
+            
+            // Add optimized route if available
+            if (vessel.optimized_route && vessel.optimized_route.length > 0) {
+                const optimizedLine = L.polyline(vessel.optimized_route, {
+                    color: '#28a745',
+                    weight: 3
+                }).addTo(map);
+                
+                // Add a simple legend to show the optimized route
+                if (!document.getElementById('map-legend')) {
+                    const legend = L.control({position: 'bottomright'});
+                    legend.onAdd = function (map) {
+                        const div = L.DomUtil.create('div', 'info legend');
+                        div.id = 'map-legend';
+                        div.innerHTML = `
+                            <div style="background: white; padding: 10px; border-radius: 5px;">
+                                <div><span style="display: inline-block; height: 3px; width: 20px; background: #28a745;"></span> Optimized Route</div>
+                                <div><span style="display: inline-block; height: 3px; width: 20px; background: #007bff; stroke-dasharray: 5, 5;"></span> Current Route</div>
+                            </div>
+                        `;
+                        return div;
+                    };
+                    legend.addTo(map);
+                }
+            }
+        });
+        
+        function getQualityColor(score) {
+            if (score >= 0.8) return '#28a745';  // Good
+            if (score >= 0.6) return '#ffc107';  // Medium
+            return '#dc3545';  // Poor
+        }
+        
+        // Set up the data quality chart
+        const qualityCtx = document.getElementById('data-quality-chart').getContext('2d');
+        const qualityChart = new Chart(qualityCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ quality_labels|safe }},
+                datasets: [{
+                    label: 'Valid Records',
+                    backgroundColor: '#28a745',
+                    data: {{ quality_valid_data|safe }}
+                }, {
+                    label: 'Invalid Records',
+                    backgroundColor: '#dc3545',
+                    data: {{ quality_invalid_data|safe }}
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        stacked: true,
+                        title: {
+                            display: true,
+                            text: 'Time'
+                        }
+                    },
+                    y: {
+                        stacked: true,
+                        title: {
+                            display: true,
+                            text: 'Record Count'
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Set up the fuel consumption trend chart
+        const fuelCtx = document.getElementById('fuel-trend-chart').getContext('2d');
+        const fuelChart = new Chart(fuelCtx, {
+            type: 'line',
+            data: {
+                labels: {{ fuel_labels|safe }},
+                datasets: [{
+                    label: 'Average Fuel Consumption',
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    data: {{ fuel_data|safe }}
+                }, {
+                    label: 'Optimized Consumption',
+                    borderColor: '#28a745',
+                    borderWidth: 2,
+                    fill: false,
+                    borderDash: [5, 5],
+                    data: {{ optimized_fuel_data|safe }}
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Time'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Fuel Consumption (L/h)'
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Filter functionality for map
+        document.getElementById('map-filter').addEventListener('change', function(e) {
+            const selectedVessel = e.target.value;
+            
+            if (selectedVessel === 'all') {
+                Object.values(vesselMarkers).forEach(marker => {
+                    marker.addTo(map);
+                });
+                Object.values(vesselRoutes).forEach(route => {
+                    if (route) route.addTo(map);
+                });
+            } else {
+                Object.entries(vesselMarkers).forEach(([id, marker]) => {
+                    if (id === selectedVessel) {
+                        marker.addTo(map);
+                        if (vesselRoutes[id]) vesselRoutes[id].addTo(map);
+                        map.setView(marker.getLatLng(), 9);
+                    } else {
+                        map.removeLayer(marker);
+                        if (vesselRoutes[id]) map.removeLayer(vesselRoutes[id]);
+                    }
+                });
+            }
+        });
+        
+        // Refresh data button handler
+        document.getElementById('refresh-data').addEventListener('click', function() {
+            // This would make an API call to refresh the data
+            // For demo purposes, we'll just update the timestamp
+            document.getElementById('last-updated').textContent = new Date().toLocaleString();
+        });
+        
+        // Update the data latency counter
+        setInterval(function() {
+            const latencyElem = document.getElementById('data-latency');
+            let latency = parseInt(latencyElem.textContent);
+            latencyElem.textContent = latency + 1;
+        }, 1000);
+    </script>
+</body>
+</html> 
