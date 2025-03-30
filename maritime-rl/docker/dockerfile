@@ -1,0 +1,9 @@
+# Start with the official TimescaleDB Alpine image
+FROM timescale/timescaledb:latest-pg15
+
+# Install PostGIS using Alpine's package manager (apk)
+RUN apk update && \
+    apk add --no-cache \
+      postgresql15-postgis \
+      postgresql15-postgis-topology && \
+    rm -rf /var/cache/apk/*

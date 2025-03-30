@@ -1,3 +1,7 @@
+-- Install required extensions
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS timescaledb;
+
 -- Create a hypertable for storing vessel telemetry data
 CREATE TABLE IF NOT EXISTS vessel_telemetry (
     id SERIAL PRIMARY KEY,
