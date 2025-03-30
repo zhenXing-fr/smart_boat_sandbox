@@ -110,8 +110,12 @@ The project uses several services that run in Docker containers:
 
 ### Accessing the Services
 
-- **Kafka UI**: http://localhost:8080 (for monitoring Kafka topics, producers, consumers, and messages)
-- **Schema Registry**: http://localhost:8081 (for Avro schemas)
+After startup, the following services are available:
+
+- **Kafka UI**: http://localhost:8080
+- **Schema Registry**: http://localhost:8081
+- **Airflow UI**: http://localhost:8090 (username: admin, password: maritime_admin)
+- **pgAdmin**: http://localhost:5050 (email: admin@maritime.com, password: maritime_admin)
 - **TimescaleDB**: 
   - Host: localhost:5432
   - Username: maritime
@@ -253,6 +257,75 @@ The project uses Proximal Policy Optimization (PPO) to optimize vessel routes ba
 - **Reward function**: Optimizing for fuel efficiency, safety, and timely arrival
 
 Models are trained automatically through the Airflow pipeline and used for route predictions in the dashboard.
+
+## Next Steps
+
+Now that your infrastructure is running, here are the recommended next steps:
+
+### 1. Generate Test Data
+
+Start producing synthetic vessel data to test the system:
+
+```bash
+# Start the vessel data producer with 3 vessels
+python -m src.maritime.producers.sailing_producer --vessels 3 --iterations 100
+```
+
+### 2. Process Data Through Kafka Streams
+
+Start the Kafka processor to apply quality gates and transformations:
+
+```bash
+python -m src.maritime.processors.sailing_processor
+```
+
+### 3. Explore Data with pgAdmin
+
+After running the data producers:
+
+1. Login to pgAdmin (http://localhost:5050)
+2. Connect to TimescaleDB
+3. Explore vessel_telemetry table to see the data
+4. Try running some analytics queries:
+
+```sql
+-- View recent vessel data
+SELECT * FROM vessel_telemetry ORDER BY timestamp DESC LIMIT 100;
+
+-- Aggregate fuel consumption by vessel
+SELECT vessel_id, 
+       AVG(fuel_consumption) as avg_fuel,
+       SUM(fuel_consumption) as total_fuel
+FROM vessel_telemetry
+GROUP BY vessel_id;
+```
+
+### 4. Configure Airflow DAGs
+
+1. Access Airflow UI (http://localhost:8090)
+2. Enable the DAGs:
+   - maritime_data_pipeline
+   - maritime_model_training
+3. Monitor the DAG runs to ensure they're processing data
+
+### 5. Visualize Results
+
+Start the visualization dashboard:
+
+```bash
+./scripts/start_dashboard.sh
+```
+
+Access the dashboard at http://localhost:5000 to see the vessel routes and performance metrics.
+
+### 6. Extend the Model
+
+Consider the following enhancements:
+
+1. Add more environmental data sources
+2. Implement more sophisticated quality gates
+3. Experiment with different RL models and parameters
+4. Add additional visualizations to the dashboard
 
 ## License
 

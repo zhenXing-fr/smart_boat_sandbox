@@ -1,0 +1,14 @@
+{
+  "creation_date": "2025-03-30T20:09:42",
+  "training_iterations": 10,
+  "average_reward": 156.72,
+  "success_rate": 0.78,
+  "vessels": ["vessel_1", "vessel_2", "vessel_3"],
+  "summary": {
+    "total_trajectories": 30,
+    "successful_trajectories": 24,
+    "hazard_collisions": 3,
+    "fuel_depletions": 3,
+    "average_steps": 127.3
+  }
+} 

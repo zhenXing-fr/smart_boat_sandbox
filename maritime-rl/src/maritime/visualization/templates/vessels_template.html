@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vessels - Maritime Route Optimization</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 8px;
+        }
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        .card-header {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .metric-label {
+            font-size: 14px;
+            color: #6c757d;
+        }
+        .vessel-details {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .vessel-card {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .vessel-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+        }
+        .vessel-card.selected {
+            border: 2px solid #007bff;
+        }
+        .telemetry-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .telemetry-label {
+            color: #6c757d;
+        }
+        .telemetry-value {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">Maritime Route Optimization</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'dashboard' %}active{% endif %}" href="/">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'vessels' %}active{% endif %}" href="/vessels">Vessels</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'routes' %}active{% endif %}" href="/routes">Routes</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'data_quality' %}active{% endif %}" href="/data_quality">Data Quality</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'models' %}active{% endif %}" href="/models">Models</a>
+                    </li>
+                </ul>
+                <span class="navbar-text">
+                    Last updated: <span id="last-updated">{{ last_updated }}</span>
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <h1>Vessel Fleet Management</h1>
+                <p class="text-muted">Detailed information and performance metrics for your vessel fleet</p>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">Fleet Position Map</div>
+                    <div class="card-body">
+                        <div id="map"></div>
+                    </div>
+                </div>
+
+                <div class="card mt-4">
+                    <div class="card-header">Vessel Performance Comparison</div>
+                    <div class="card-body">
+                        <canvas id="performance-chart" height="300"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">Vessel List</div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush" id="vessel-list">
+                            {% for vessel in vessels %}
+                            <div class="list-group-item vessel-card" 
+                                 data-vessel-id="{{ vessel.id }}"
+                                 onclick="selectVessel('{{ vessel.id }}')">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">{{ vessel.name }}</h6>
+                                    <small class="text-muted">{{ vessel.last_update }}</small>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <small>Speed: {{ vessel.speed }} knots</small>
+                                    <small>Heading: {{ vessel.heading }}°</small>
+                                </div>
+                                <div class="progress mt-2" style="height: 5px;">
+                                    <div class="progress-bar 
+                                        {% if vessel.quality_score >= 0.8 %}bg-success
+                                        {% elif vessel.quality_score >= 0.6 %}bg-warning
+                                        {% else %}bg-danger{% endif %}" 
+                                        role="progressbar" 
+                                        style="width: {{ vessel.quality_score * 100 }}%">
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">Vessel Details</div>
+                    <div class="card-body vessel-details" id="vessel-details">
+                        <div class="alert alert-info text-center">
+                            Select a vessel from the list to see detailed information
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-light mt-5 py-3">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <p class="mb-0">Maritime Route Optimization © 2024</p>
+                </div>
+                <div class="col-md-6 text-end">
+                    <p class="mb-0 text-muted">Data latency: <span id="data-latency">5</span>s</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Vessel data from backend
+        const vesselData = {{ vessel_data|safe }};
+        const vesselMetrics = {{ vessel_metrics|tojson|safe }};
+        
+        // Initialize the map
+        const map = L.map('map').setView([56.0, 11.0], 7);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Add vessels to map
+        const vesselMarkers = {};
+        const vesselRoutes = {};
+        
+        vesselData.forEach(vessel => {
+            // Create marker for vessel position
+            const marker = L.circleMarker([vessel.lat, vessel.lng], {
+                radius: 6,
+                fillColor: getQualityColor(vessel.quality_score),
+                color: "#fff",
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.8
+            }).addTo(map);
+            
+            marker.bindPopup(`
+                <strong>${vessel.name}</strong><br>
+                Speed: ${vessel.speed} knots<br>
+                Heading: ${vessel.heading}°<br>
+                Fuel: ${vessel.fuel_consumption} L/h<br>
+                Quality: ${(vessel.quality_score * 100).toFixed(1)}%
+            `);
+            
+            vesselMarkers[vessel.id] = marker;
+            
+            // Add route if available
+            if (vessel.route && vessel.route.length > 0) {
+                const routeLine = L.polyline(vessel.route, {
+                    color: getQualityColor(vessel.quality_score),
+                    dashArray: '5, 5',
+                    weight: 2
+                }).addTo(map);
+                vesselRoutes[vessel.id] = routeLine;
+            }
+        });
+        
+        function getQualityColor(score) {
+            if (score >= 0.8) return '#28a745';  // Good
+            if (score >= 0.6) return '#ffc107';  // Medium
+            return '#dc3545';  // Poor
+        }
+        
+        // Performance comparison chart
+        const performanceCtx = document.getElementById('performance-chart').getContext('2d');
+        const performanceChart = new Chart(performanceCtx, {
+            type: 'bar',
+            data: {
+                labels: vesselData.map(v => v.name),
+                datasets: [
+                    {
+                        label: 'Fuel Efficiency (L/nm)',
+                        backgroundColor: '#28a745',
+                        data: vesselData.map(v => vesselMetrics[v.id].fuel_efficiency)
+                    },
+                    {
+                        label: 'Avg. Speed (knots)',
+                        backgroundColor: '#007bff',
+                        data: vesselData.map(v => vesselMetrics[v.id].avg_speed)
+                    },
+                    {
+                        label: 'Optimization Gain (%)',
+                        backgroundColor: '#17a2b8',
+                        data: vesselData.map(v => vesselMetrics[v.id].optimization_gain)
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+        
+        // Function to select a vessel and show details
+        function selectVessel(vesselId) {
+            // Clear previous selection
+            document.querySelectorAll('.vessel-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // Highlight selected vessel
+            document.querySelector(`.vessel-card[data-vessel-id="${vesselId}"]`).classList.add('selected');
+            
+            // Find vessel data
+            const vessel = vesselData.find(v => v.id === vesselId);
+            const metrics = vesselMetrics[vesselId];
+            
+            // Center map on vessel
+            map.setView([vessel.lat, vessel.lng], 9);
+            
+            // Update vessel details panel
+            const detailsHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h4>${vessel.name}</h4>
+                        <p class="text-muted">Last update: ${vessel.last_update}</p>
+                        
+                        <h5 class="mt-4">Current Telemetry</h5>
+                        <div class="telemetry-row">
+                            <span class="telemetry-label">Position:</span>
+                            <span class="telemetry-value">${vessel.lat.toFixed(4)}°N, ${vessel.lng.toFixed(4)}°E</span>
+                        </div>
+                        <div class="telemetry-row">
+                            <span class="telemetry-label">Speed:</span>
+                            <span class="telemetry-value">${vessel.speed} knots</span>
+                        </div>
+                        <div class="telemetry-row">
+                            <span class="telemetry-label">Heading:</span>
+                            <span class="telemetry-value">${vessel.heading}°</span>
+                        </div>
+                        <div class="telemetry-row">
+                            <span class="telemetry-label">Fuel Consumption:</span>
+                            <span class="telemetry-value">${vessel.fuel_consumption} L/h</span>
+                        </div>
+                        <div class="telemetry-row">
+                            <span class="telemetry-label">Data Quality:</span>
+                            <span class="telemetry-value ${vessel.quality_score >= 0.8 ? 'text-success' : vessel.quality_score >= 0.6 ? 'text-warning' : 'text-danger'}">
+                                ${(vessel.quality_score * 100).toFixed(1)}%
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Performance Metrics</h5>
+                        <div class="telemetry-row">
+                            <span class="telemetry-label">Distance Traveled:</span>
+                            <span class="telemetry-value">${metrics.distance_traveled} nm</span>
+                        </div>
+                        <div class="telemetry-row">
+                            <span class="telemetry-label">Average Speed:</span>
+                            <span class="telemetry-value">${metrics.avg_speed} knots</span>
+                        </div>
+                        <div class="telemetry-row">
+                            <span class="telemetry-label">Fuel Efficiency:</span>
+                            <span class="telemetry-value">${metrics.fuel_efficiency} L/nm</span>
+                        </div>
+                        <div class="telemetry-row">
+                            <span class="telemetry-label">Optimization Gain:</span>
+                            <span class="telemetry-value text-success">+${metrics.optimization_gain}%</span>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <button class="btn btn-primary btn-sm me-2">View Voyage History</button>
+                            <button class="btn btn-outline-primary btn-sm">Optimize Route</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('vessel-details').innerHTML = detailsHTML;
+        }
+        
+        // Select the first vessel by default
+        if (vesselData.length > 0) {
+            setTimeout(() => selectVessel(vesselData[0].id), 500);
+        }
+        
+        // Update the data latency counter
+        setInterval(function() {
+            const latencyElem = document.getElementById('data-latency');
+            let latency = parseInt(latencyElem.textContent);
+            latencyElem.textContent = latency + 1;
+        }, 1000);
+    </script>
+</body>
+</html> 

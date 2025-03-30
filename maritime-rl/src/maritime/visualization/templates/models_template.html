@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Models - Maritime Route Optimization</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        .card-header {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        .model-card {
+            border-left: 4px solid;
+        }
+        .model-card.deployed {
+            border-left-color: #28a745;
+        }
+        .model-card.testing {
+            border-left-color: #17a2b8;
+        }
+        .model-card.archived {
+            border-left-color: #6c757d;
+        }
+        .status-badge {
+            font-size: 0.8rem;
+            padding: 0.2rem 0.6rem;
+        }
+        .model-detail {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .model-detail-label {
+            color: #6c757d;
+        }
+        .model-detail-value {
+            font-weight: bold;
+        }
+        .training-metric {
+            margin-bottom: 12px;
+        }
+        .metric-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .metric-value {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .metric-change {
+            font-size: 0.9rem;
+            margin-left: 5px;
+        }
+        .change-positive {
+            color: #28a745;
+        }
+        .change-negative {
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">Maritime Route Optimization</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'dashboard' %}active{% endif %}" href="/">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'vessels' %}active{% endif %}" href="/vessels">Vessels</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'routes' %}active{% endif %}" href="/routes">Routes</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'data_quality' %}active{% endif %}" href="/data_quality">Data Quality</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'models' %}active{% endif %}" href="/models">Models</a>
+                    </li>
+                </ul>
+                <span class="navbar-text">
+                    Last updated: <span id="last-updated">{{ last_updated }}</span>
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <h1>ML Model Management</h1>
+                <p class="text-muted">Track and deploy reinforcement learning models for route optimization</p>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">Training Metrics</div>
+                    <div class="card-body">
+                        <ul class="nav nav-tabs" id="metrics-tabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="reward-tab" data-bs-toggle="tab" data-bs-target="#reward" type="button" role="tab">Reward</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="loss-tab" data-bs-toggle="tab" data-bs-target="#loss" type="button" role="tab">Loss</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="efficiency-tab" data-bs-toggle="tab" data-bs-target="#efficiency" type="button" role="tab">Fuel Efficiency</button>
+                            </li>
+                        </ul>
+                        <div class="tab-content py-3" id="metrics-content">
+                            <div class="tab-pane fade show active" id="reward" role="tabpanel" aria-labelledby="reward-tab">
+                                <canvas id="reward-chart" height="300"></canvas>
+                            </div>
+                            <div class="tab-pane fade" id="loss" role="tabpanel" aria-labelledby="loss-tab">
+                                <canvas id="loss-chart" height="300"></canvas>
+                            </div>
+                            <div class="tab-pane fade" id="efficiency" role="tabpanel" aria-labelledby="efficiency-tab">
+                                <canvas id="efficiency-chart" height="300"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mt-4">
+                    <div class="card-header">Optimization Impact</div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="training-metric text-center">
+                                    <div class="metric-title">Avg. Fuel Savings</div>
+                                    <div>
+                                        <span class="metric-value">11.8%</span>
+                                        <span class="metric-change change-positive">↑ 1.3%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="training-metric text-center">
+                                    <div class="metric-title">Route Completion Rate</div>
+                                    <div>
+                                        <span class="metric-value">99.2%</span>
+                                        <span class="metric-change change-positive">↑ 0.5%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="training-metric text-center">
+                                    <div class="metric-title">Weather Avoidance</div>
+                                    <div>
+                                        <span class="metric-value">87.5%</span>
+                                        <span class="metric-change change-positive">↑ 4.2%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Model Versions</span>
+                            <div>
+                                <button class="btn btn-sm btn-primary">New Training Run</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        {% for model in model_versions %}
+                        <div class="card mb-3 model-card {{ model.status|lower }}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h5 class="card-title mb-0">{{ model.name }} {{ model.version }}</h5>
+                                    <span class="badge rounded-pill bg-{{ 'success' if model.status == 'Deployed' else 'info' if model.status == 'Testing' else 'secondary' }} status-badge">
+                                        {{ model.status }}
+                                    </span>
+                                </div>
+                                
+                                <div class="model-detail">
+                                    <span class="model-detail-label">Deployed:</span>
+                                    <span class="model-detail-value">{{ model.deployed_at }}</span>
+                                </div>
+                                <div class="model-detail">
+                                    <span class="model-detail-label">Accuracy:</span>
+                                    <span class="model-detail-value">{{ model.accuracy }}</span>
+                                </div>
+                                <div class="model-detail">
+                                    <span class="model-detail-label">Fuel Savings:</span>
+                                    <span class="model-detail-value">{{ model.fuel_savings }}</span>
+                                </div>
+                                <div class="model-detail">
+                                    <span class="model-detail-label">Training Data:</span>
+                                    <span class="model-detail-value">{{ model.training_data }}</span>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    {% if model.status == 'Deployed' %}
+                                    <button class="btn btn-sm btn-outline-secondary">View Metrics</button>
+                                    {% elif model.status == 'Testing' %}
+                                    <button class="btn btn-sm btn-outline-success">Deploy</button>
+                                    <button class="btn btn-sm btn-outline-secondary ms-2">View Metrics</button>
+                                    {% else %}
+                                    <button class="btn btn-sm btn-outline-primary">Reactivate</button>
+                                    <button class="btn btn-sm btn-outline-secondary ms-2">View Metrics</button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">Hyperparameter Tuning</div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <canvas id="hyperparameter-chart" height="250"></canvas>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Parameter</th>
+                                                <th>Current Value</th>
+                                                <th>Impact</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>Learning Rate</td>
+                                                <td>0.0025</td>
+                                                <td><span class="badge bg-success">High</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td>Discount Factor</td>
+                                                <td>0.98</td>
+                                                <td><span class="badge bg-success">High</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td>Entropy Coefficient</td>
+                                                <td>0.01</td>
+                                                <td><span class="badge bg-warning">Medium</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td>Batch Size</td>
+                                                <td>128</td>
+                                                <td><span class="badge bg-warning">Medium</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td>Value Function Coefficient</td>
+                                                <td>0.5</td>
+                                                <td><span class="badge bg-info">Low</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td>Clip Parameter</td>
+                                                <td>0.2</td>
+                                                <td><span class="badge bg-warning">Medium</span></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-light mt-5 py-3">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <p class="mb-0">Maritime Route Optimization © 2024</p>
+                </div>
+                <div class="col-md-6 text-end">
+                    <p class="mb-0 text-muted">Data latency: <span id="data-latency">5</span>s</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Training metrics data
+        const trainingMetrics = {{ training_metrics|safe }};
+        
+        // Reward chart
+        const rewardCtx = document.getElementById('reward-chart').getContext('2d');
+        const rewardChart = new Chart(rewardCtx, {
+            type: 'line',
+            data: {
+                labels: trainingMetrics.dates,
+                datasets: [{
+                    label: 'Average Reward',
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    data: trainingMetrics.reward,
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        title: {
+                            display: true,
+                            text: 'Reward'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Training Date'
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Average Episode Reward Over Time'
+                    }
+                }
+            }
+        });
+        
+        // Loss chart
+        const lossCtx = document.getElementById('loss-chart').getContext('2d');
+        const lossChart = new Chart(lossCtx, {
+            type: 'line',
+            data: {
+                labels: trainingMetrics.dates,
+                datasets: [{
+                    label: 'Policy Loss',
+                    borderColor: '#dc3545',
+                    backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                    data: trainingMetrics.loss,
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        title: {
+                            display: true,
+                            text: 'Loss'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Training Date'
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Policy Loss Over Time'
+                    }
+                }
+            }
+        });
+        
+        // Fuel efficiency chart
+        const efficiencyCtx = document.getElementById('efficiency-chart').getContext('2d');
+        const efficiencyChart = new Chart(efficiencyCtx, {
+            type: 'line',
+            data: {
+                labels: trainingMetrics.dates,
+                datasets: [{
+                    label: 'Fuel Efficiency (L/nm)',
+                    borderColor: '#17a2b8',
+                    backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                    data: trainingMetrics.fuel_efficiency,
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        title: {
+                            display: true,
+                            text: 'L/nm'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Training Date'
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Average Fuel Efficiency Over Time'
+                    }
+                }
+            }
+        });
+        
+        // Hyperparameter tuning chart
+        const hpCtx = document.getElementById('hyperparameter-chart').getContext('2d');
+        const hpChart = new Chart(hpCtx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Learning Rate Impact',
+                    data: [
+                        {x: 0.001, y: 210},
+                        {x: 0.002, y: 235},
+                        {x: 0.0025, y: 258},
+                        {x: 0.003, y: 245},
+                        {x: 0.004, y: 225},
+                        {x: 0.005, y: 200}
+                    ],
+                    backgroundColor: '#007bff'
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Learning Rate'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Avg. Reward'
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Learning Rate vs. Reward'
+                    }
+                }
+            }
+        });
+        
+        // Update the data latency counter
+        setInterval(function() {
+            const latencyElem = document.getElementById('data-latency');
+            let latency = parseInt(latencyElem.textContent);
+            latencyElem.textContent = latency + 1;
+        }, 1000);
+    </script>
+</body>
+</html> 

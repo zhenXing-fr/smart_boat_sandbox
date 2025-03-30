@@ -2,7 +2,10 @@ version: '3'
 
 # Airflow common configuration
 x-airflow-common: &airflow-common
-  image: apache/airflow:2.8.1
+  image: maritime-airflow:latest
+  build:
+    context: .
+    dockerfile: Dockerfile.airflow
   environment: &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
@@ -14,6 +17,7 @@ x-airflow-common: &airflow-common
     AIRFLOW__WEBSERVER__DEFAULT_UI_USERNAME: 'admin'
     AIRFLOW__WEBSERVER__DEFAULT_UI_PASSWORD: 'maritime_admin'
     MARITIME_PROJECT_PATH: /opt/airflow/maritime-rl
+    _PIP_ADDITIONAL_REQUIREMENTS: kafka-python==2.1.4
   volumes:
     - ../dags:/opt/airflow/dags
     - ./airflow/logs:/opt/airflow/logs
@@ -107,6 +111,7 @@ services:
       - maritime-network
 
   timescaledb:
+    image: parjom/timescaledb-postgis:latest
     image: parjom/timescaledb-postgis:latest
     container_name: timescaledb
     ports:

@@ -1,0 +1,27 @@
+{
+  "output_dir": "/opt/airflow/models/rl",
+  "epochs": 100,
+  "steps_per_epoch": 1000,
+  "max_episode_length": 150,
+  "save_freq": 10,
+  "num_vessels": 3,
+  "plot_results": true,
+  "environment": {
+    "max_steps": 200,
+    "weather_change_prob": 0.1,
+    "hazard_density": 0.05,
+    "fuel_capacity": 100.0,
+    "destination": [57.1, 12.3]
+  },
+  "agent": {
+    "learning_rate": 0.0003,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip_ratio": 0.2,
+    "target_kl": 0.01,
+    "value_learning_rate": 0.001,
+    "train_pi_iterations": 80,
+    "train_v_iterations": 80,
+    "batch_size": 64
+  }
+}

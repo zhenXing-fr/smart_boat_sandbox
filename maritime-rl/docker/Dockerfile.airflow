@@ -1,0 +1,6 @@
+FROM apache/airflow:2.8.1
+
+# Install additional Python packages
+RUN pip install --no-cache-dir kafka-python==2.1.4
+
+# The image is ready to be used in docker-compose 
