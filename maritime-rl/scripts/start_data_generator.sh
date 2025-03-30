@@ -4,6 +4,9 @@
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 cd "$SCRIPT_DIR/.."
 
+# Create logs directory if it doesn't exist
+mkdir -p logs
+
 # Check if Kafka is running
 echo "Checking Kafka connection..."
 KAFKA_RUNNING=false
