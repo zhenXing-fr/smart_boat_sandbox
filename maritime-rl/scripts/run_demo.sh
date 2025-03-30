@@ -205,8 +205,8 @@ log_step "7" "Starting Visualization Dashboard"
 log_status "Starting the maritime route visualization dashboard..."
 
 # Check if dashboard is already running
-if lsof -i :5000 > /dev/null; then
-    log_warning "Dashboard is already running on port 5000."
+if lsof -i :5500 > /dev/null; then
+    log_warning "Dashboard is already running on port 5500."
 else
     # Start dashboard in background
     ./scripts/start_dashboard.sh > /tmp/dashboard.log 2>&1 &
@@ -235,7 +235,7 @@ echo -e "  - Kafka UI: http://localhost:8080"
 echo -e "  - Schema Registry: http://localhost:8081"
 echo -e "  - pgAdmin: http://localhost:5050 (admin@maritime.com / maritime_admin)"
 echo -e "  - Airflow: http://localhost:8090 (admin / maritime_admin)"
-echo -e "  - Dashboard: http://localhost:5000"
+echo -e "  - Dashboard: http://localhost:5500"
 
 echo -e "\n${GREEN}Next Steps:${NC}"
 echo -e "  1. Explore vessel data in pgAdmin"
