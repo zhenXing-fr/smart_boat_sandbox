@@ -29,7 +29,7 @@ export PROCESSED_TOPIC="processed_sailing_data"
 
 # Set to true to allow mock data when DB is unavailable
 # Set to false in production to see real data only
-export USE_MOCK_DATA="true"
+export USE_MOCK_DATA="false"
 
 # Start the dashboard application
 cd "$PROJECT_ROOT"

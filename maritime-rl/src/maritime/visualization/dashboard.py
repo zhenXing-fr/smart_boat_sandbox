@@ -863,7 +863,7 @@ def api_recent_data():
 def main():
     """Run the dashboard application."""
     logger.info("Starting Maritime Route Optimization Dashboard")
-    app.run(host="0.0.0.0", port=5500, debug=True)
+    app.run(host="0.0.0.0", port=5501, debug=True)
 
 
 if __name__ == "__main__":

@@ -34,7 +34,7 @@ except Exception as e:
 try:
     query = '''
     SELECT 
-        time, 
+        timestamp, 
         vessel_id, 
         ST_X(position::geometry) as lon,
         ST_Y(position::geometry) as lat, 
@@ -42,7 +42,7 @@ try:
         heading, 
         fuel_consumption
     FROM vessel_telemetry
-    ORDER BY vessel_id, time
+    ORDER BY vessel_id, timestamp
     '''
     cursor.execute(query)
     rows = cursor.fetchall()
