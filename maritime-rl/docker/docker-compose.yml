@@ -226,8 +226,8 @@ services:
           echo "At least 10 GiB recommended. You have $$(numfmt --to iec $$((disk_available * one_meg)))"
           echo
         fi
-        mkdir -p /sources/logs /sources/dags /sources/plugins
-        chown -R "${AIRFLOW_UID}:0" /sources/{logs,dags,plugins}
+        mkdir -p /opt/airflow/logs /opt/airflow/dags /opt/airflow/plugins
+        chown -R "${AIRFLOW_UID}:0" /opt/airflow/{logs,dags,plugins}
         exec airflow db init && \
         airflow users create \
           --username admin \

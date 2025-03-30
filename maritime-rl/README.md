@@ -117,6 +117,20 @@ The project uses several services that run in Docker containers:
   - Username: maritime
   - Password: password
   - Database: maritime
+- **Airflow**:
+  - Username: admin
+  - Password: maritime_admin
+
+Note run below script if airflow init fail
+```
+docker exec -it airflow-webserver airflow users create \
+  --username admin \
+  --firstname Admin \
+  --lastname User \
+  --role Admin \
+  --email admin@maritime.com \
+  --password maritime_admin
+```
 
 ## Running the Data Pipeline
 
