@@ -116,6 +116,12 @@ if ! AIRFLOW_UID=${AIRFLOW_UID} docker-compose -f docker/docker-compose.yml ps t
     fi
 fi
 
+# 5b. Start pgAdmin
+log_status "5b. Starting pgAdmin..."
+AIRFLOW_UID=${AIRFLOW_UID} docker-compose -f docker/docker-compose.yml up -d pgadmin
+log_status "Waiting for pgAdmin to initialize..."
+wait_for_service pgadmin 15
+
 # 6. Start Airflow Postgres
 log_status "6. Starting Airflow Postgres..."
 AIRFLOW_UID=${AIRFLOW_UID} docker-compose -f docker/docker-compose.yml up -d airflow-postgres
@@ -135,5 +141,6 @@ echo -e "${GREEN}- Kafka UI:${NC} http://localhost:8080"
 echo -e "${GREEN}- Schema Registry:${NC} http://localhost:8081"
 echo -e "${GREEN}- Airflow UI:${NC} http://localhost:8090 (username: admin, password: maritime_admin)"
 echo -e "${GREEN}- TimescaleDB:${NC} localhost:5432 (username: maritime, password: password, database: maritime)"
+echo -e "${GREEN}- pgAdmin:${NC} http://localhost:5050 (email: admin@maritime.com, password: maritime_admin)"
 echo ""
 log_status "You can now run data producers and the visualization dashboard." 
