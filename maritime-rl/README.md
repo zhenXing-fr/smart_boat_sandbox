@@ -21,6 +21,46 @@ This project implements a complete data pipeline for maritime route optimization
 - **Interactive visualization**: Real-time dashboard for route monitoring and analysis
 - **Container-based deployment**: Docker and Docker Compose for easy setup
 
+## Architecture Components
+
+```mermaid
+graph TB
+    subgraph "Data Sources"
+        HD[Historical Sailing Data] -->|"CSV/JSON"| K1[Kafka Producer]
+        WD[Weather Data API] -->|"REST API"| K2[Kafka Producer]
+        ED[Environmental Data] -->|"REST API"| K3[Kafka Producer]
+    end
+
+    subgraph "Data Processing"
+        K1 & K2 & K3 -->|"Avro Schema"| KR[Kafka Topics]
+        KR -->|"Validation"| KS[Kafka Streams]
+        KS -->|"Anomaly Detection"| AD[Quality Gates]
+    end
+
+    subgraph "Storage"
+        AD -->|"Time-series"| TSDB[TimescaleDB]
+        AD -->|"Processed Events"| PT[Kafka Processed Topics]
+    end
+
+    subgraph "ML Pipeline"
+        TSDB & PT -->|"Feature Engineering"| FE[Feature Store]
+        FE -->|"Training Data"| RL[Reinforcement Learning]
+        RL -->|"Model"| RM[Route Model]
+    end
+
+    subgraph "Orchestration"
+        AF[Airflow DAGs] -->|"Schedule"| KS
+        AF -->|"Train"| RL
+        AF -->|"Deploy"| RM
+    end
+
+    subgraph "Visualization"
+        RM -->|"Route Predictions"| VIZ[Dashboard]
+        VIZ -->|"Real-time"| MAP[Interactive Map]
+    end
+```
+
+
 ## Setup Instructions
 
 ### Prerequisites
@@ -165,6 +205,44 @@ Parameters:
 - `--schema-registry-url`: Schema Registry URL
 - `--topic`: Kafka topic name (default: vessel_sailing_data)
 - `--seed`: Random seed for reproducibility
+
+# ALL BELOW IS IN PROGRESS
+
+The idea is to create two dags (data processing and model training), and the data process dag is like below. 
+Due to the time limit, it's in progress to set every thing properly
+
+```mermaid
+sequenceDiagram
+    participant VesselProducer as Vessel Data Producer
+    participant VesselTopic as Kafka Topic:<br>vessel_sailing_data
+    participant Processor as Sailing Processor<br>(Consumer + Producer)
+    participant ProcessedTopic as Kafka Topic:<br>processed_sailing_data
+    participant QualityCheck as Data Quality Check
+    participant DBConsumer as TimescaleDB Consumer<br>(process_kafka_data.py)
+    participant TimescaleDB as TimescaleDB
+
+    Note over VesselProducer,TimescaleDB: Airflow DAG: maritime_data_pipeline
+
+    VesselProducer->>VesselTopic: Produce vessel telemetry<br>(Not part of DAG)
+    
+    Note over VesselTopic: check_kafka_topics task<br>Verifies topics exist
+    
+    VesselTopic->>Processor: Consume raw sailing data
+    Processor->>ProcessedTopic: Produce validated & processed data
+    
+    Note over ProcessedTopic: check_data_quality task<br>Samples messages
+    
+    ProcessedTopic->>QualityCheck: Sample messages for quality
+    
+    alt Data Quality Good
+        QualityCheck->>DBConsumer: Proceed with storage
+    else Data Quality Poor
+        QualityCheck->>DBConsumer: Alert but still store
+    end
+    
+    ProcessedTopic->>DBConsumer: Consume processed data
+    DBConsumer->>TimescaleDB: Insert into vessel_telemetry table
+```
 
 ### 3. Data Processing
 
