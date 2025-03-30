@@ -24,69 +24,23 @@ if ! docker ps | grep -q pgadmin; then
     exit 1
 fi
 
-# Create temporary SQL file
-cat > /tmp/setup_connections.sql << EOF
--- Create server group
-DO \$\$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pgadmin_server_group WHERE name = 'Maritime Project') THEN
-        INSERT INTO pgadmin_server_group (name, uid, user_id)
-        SELECT 'Maritime Project', gen_random_uuid(), id FROM pgadmin_user WHERE username = 'admin@maritime.com' LIMIT 1;
-    END IF;
-END \$\$;
-
--- Get the server group id
-WITH group_id AS (
-    SELECT id FROM pgadmin_server_group WHERE name = 'Maritime Project'
-)
--- Create TimescaleDB server connection if it doesn't exist
-INSERT INTO pgadmin_server (name, servergroup_id, json_data, user_id)
-SELECT 
-    'TimescaleDB', 
-    group_id.id, 
-    '{"host": "timescaledb", "port": 5432, "db": "maritime", "username": "maritime", "password": "password", "ssl_mode": "prefer", "maintenance_db": "maritime"}', 
-    pgadmin_user.id
-FROM 
-    group_id, 
-    pgadmin_user 
-WHERE 
-    pgadmin_user.username = 'admin@maritime.com'
-    AND NOT EXISTS (
-        SELECT 1 FROM pgadmin_server 
-        WHERE name = 'TimescaleDB' 
-        AND user_id = pgadmin_user.id
-    );
-
--- Create Airflow Postgres server connection if it doesn't exist
-WITH group_id AS (
-    SELECT id FROM pgadmin_server_group WHERE name = 'Maritime Project'
-)
-INSERT INTO pgadmin_server (name, servergroup_id, json_data, user_id)
-SELECT 
-    'Airflow Postgres', 
-    group_id.id, 
-    '{"host": "airflow-postgres", "port": 5432, "db": "airflow", "username": "airflow", "password": "airflow", "ssl_mode": "prefer", "maintenance_db": "airflow"}', 
-    pgadmin_user.id
-FROM 
-    group_id, 
-    pgadmin_user 
-WHERE 
-    pgadmin_user.username = 'admin@maritime.com'
-    AND NOT EXISTS (
-        SELECT 1 FROM pgadmin_server 
-        WHERE name = 'Airflow Postgres' 
-        AND user_id = pgadmin_user.id
-    );
-EOF
-
-log_status "Setting up pgAdmin connections..."
-
-# Create servers in pgAdmin
-docker exec -i pgadmin psql -U pgadmin -d pgadmin4 < /tmp/setup_connections.sql
-
-# Remove temporary file
-rm /tmp/setup_connections.sql
-
-log_status "pgAdmin connections have been set up."
-log_status "You can now access TimescaleDB and Airflow Postgres in pgAdmin at http://localhost:5050"
-log_status "Login with email: admin@maritime.com and password: maritime_admin" 
+log_status "pgAdmin is running, but automatic connection setup is not available."
+log_status "Please set up connections manually:"
+log_status "1. Open pgAdmin at http://localhost:5050"
+log_status "2. Login with email: admin@maritime.com and password: maritime_admin"
+log_status "3. Right-click on Servers and select Create > Server..."
+log_status "4. For TimescaleDB, use these settings:"
+echo -e "   ${GREEN}Name:${NC} TimescaleDB"
+echo -e "   ${GREEN}Host:${NC} timescaledb"
+echo -e "   ${GREEN}Port:${NC} 5432"
+echo -e "   ${GREEN}Maintenance DB:${NC} maritime"
+echo -e "   ${GREEN}Username:${NC} maritime"
+echo -e "   ${GREEN}Password:${NC} password"
+log_status "5. For Airflow Postgres, use these settings:"
+echo -e "   ${GREEN}Name:${NC} Airflow Postgres"
+echo -e "   ${GREEN}Host:${NC} airflow-postgres"
+echo -e "   ${GREEN}Port:${NC} 5432"
+echo -e "   ${GREEN}Maintenance DB:${NC} airflow"
+echo -e "   ${GREEN}Username:${NC} airflow"
+echo -e "   ${GREEN}Password:${NC} airflow"
+log_status "Your connections should be saved in the pgAdmin volume and persist across restarts." 

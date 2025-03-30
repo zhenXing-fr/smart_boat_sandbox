@@ -97,36 +97,72 @@ The project uses several services that run in Docker containers:
 
 ### Starting the Infrastructure
 
-1. Start all services:
-   ```bash
-   docker-compose -f docker/docker-compose.yml up -d
-   ```
+For reliable startup of all services, use the sequential startup script:
 
-   This will start:
-   - Zookeeper
-   - Kafka
-   - Schema Registry
-   - Kafka UI
-   - TimescaleDB
+```bash
+./scripts/start_services_sequential.sh
+```
 
-2. If services fail to start properly, try starting them individually:
-   ```bash
-   docker-compose -f docker/docker-compose.yml up -d zookeeper
-   docker-compose -f docker/docker-compose.yml up -d kafka
-   docker-compose -f docker/docker-compose.yml up -d schema-registry
-   docker-compose -f docker/docker-compose.yml up -d kafka-ui
-   docker-compose -f docker/docker-compose.yml up -d timescaledb
-   ```
+This script starts the services in the optimal order, ensuring dependencies are healthy before starting dependent services:
+
+1. Zookeeper
+2. Kafka
+3. Schema Registry
+4. Kafka UI
+5. TimescaleDB
+6. pgAdmin
+7. Airflow Postgres
+8. Airflow Initialization
+9. Airflow Webserver & Scheduler
+
+> The script includes health checks and robust error handling to ensure reliable startup of complex dependencies.
 
 ### Accessing the Services
 
-- **Kafka UI**: http://localhost:8080 (for monitoring Kafka topics, producers, consumers, and messages)
-- **Schema Registry**: http://localhost:8081 (for Avro schemas)
+After startup, the following services are available:
+
+- **Kafka UI**: http://localhost:8080
+- **Schema Registry**: http://localhost:8081
+- **Airflow UI**: http://localhost:8090 (username: admin, password: maritime_admin)
+- **pgAdmin**: http://localhost:5050 (email: admin@maritime.com, password: maritime_admin)
 - **TimescaleDB**: 
   - Host: localhost:5432
   - Username: maritime
   - Password: password
   - Database: maritime
+
+### Database Management with pgAdmin
+
+The setup includes pgAdmin for easy database management:
+
+1. After starting services, configure pgAdmin connections automatically:
+   ```bash
+   ./scripts/setup_pgadmin_connections.sh
+   ```
+
+2. Access pgAdmin at http://localhost:5050 and log in
+   - The script creates connections to both TimescaleDB and Airflow databases
+   - You can browse tables, run queries, and visualize data
+
+### Troubleshooting Infrastructure Issues
+
+If you encounter issues with the infrastructure:
+
+1. For TimescaleDB issues:
+   ```bash
+   ./scripts/reset_timescaledb.sh
+   ```
+
+2. For detailed service logs:
+   ```bash
+   docker logs <service-name>
+   # Example: docker logs timescaledb
+   ```
+
+3. To restart a specific service:
+   ```bash
+   docker-compose -f docker/docker-compose.yml restart <service-name>
+   ```
 
 ## Running the Data Pipeline
 
@@ -267,6 +303,75 @@ The project uses Proximal Policy Optimization (PPO) to optimize vessel routes ba
 - **Reward function**: Optimizing for fuel efficiency, safety, and timely arrival
 
 Models are trained automatically through the Airflow pipeline and used for route predictions in the dashboard.
+
+## Next Steps
+
+Now that your infrastructure is running, here are the recommended next steps:
+
+### 1. Generate Test Data
+
+Start producing synthetic vessel data to test the system:
+
+```bash
+# Start the vessel data producer with 3 vessels
+python -m src.maritime.producers.sailing_producer --vessels 3 --iterations 100
+```
+
+### 2. Process Data Through Kafka Streams
+
+Start the Kafka processor to apply quality gates and transformations:
+
+```bash
+python -m src.maritime.processors.sailing_processor
+```
+
+### 3. Explore Data with pgAdmin
+
+After running the data producers:
+
+1. Login to pgAdmin (http://localhost:5050)
+2. Connect to TimescaleDB
+3. Explore vessel_telemetry table to see the data
+4. Try running some analytics queries:
+
+```sql
+-- View recent vessel data
+SELECT * FROM vessel_telemetry ORDER BY timestamp DESC LIMIT 100;
+
+-- Aggregate fuel consumption by vessel
+SELECT vessel_id, 
+       AVG(fuel_consumption) as avg_fuel,
+       SUM(fuel_consumption) as total_fuel
+FROM vessel_telemetry
+GROUP BY vessel_id;
+```
+
+### 4. Configure Airflow DAGs
+
+1. Access Airflow UI (http://localhost:8090)
+2. Enable the DAGs:
+   - maritime_data_pipeline
+   - maritime_model_training
+3. Monitor the DAG runs to ensure they're processing data
+
+### 5. Visualize Results
+
+Start the visualization dashboard:
+
+```bash
+./scripts/start_dashboard.sh
+```
+
+Access the dashboard at http://localhost:5000 to see the vessel routes and performance metrics.
+
+### 6. Extend the Model
+
+Consider the following enhancements:
+
+1. Add more environmental data sources
+2. Implement more sophisticated quality gates
+3. Experiment with different RL models and parameters
+4. Add additional visualizations to the dashboard
 
 ## License
 

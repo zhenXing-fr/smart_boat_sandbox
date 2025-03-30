@@ -18,7 +18,7 @@ from confluent_kafka.schema_registry.avro import AvroDeserializer, AvroSerialize
 from confluent_kafka.serialization import MessageField, SerializationContext
 from dotenv import load_dotenv
 
-from src.maritime_rl.schemas.sailing import SAILING_SCHEMA
+from src.maritime.schemas.sailing import SAILING_SCHEMA
 
 # Load environment variables
 load_dotenv()
