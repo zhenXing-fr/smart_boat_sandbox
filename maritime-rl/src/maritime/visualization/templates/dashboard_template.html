@@ -91,6 +91,12 @@
                     <li class="nav-item">
                         <a class="nav-link {% if page == 'models' %}active{% endif %}" href="/models">Models</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ monte_carlo_url }}">
+                            <i class="fas fa-chart-line"></i>
+                            <span>Monte Carlo Simulation</span>
+                        </a>
+                    </li>
                 </ul>
                 <span class="navbar-text">
                     <span class="data-status-indicator {% if not use_mock_data %}real{% else %}mock{% endif %}"></span>

@@ -1,0 +1,99 @@
+{
+  "vessel_id": "vessel_1",
+  "iterations": 10,
+  "success_rate": 0.8,
+  "average_steps": 125.4,
+  "average_reward": 162.5,
+  "trajectories": [
+    {
+      "iteration": 0,
+      "steps": 132,
+      "destination_reached": true,
+      "hazard_hit": false,
+      "fuel_depleted": false,
+      "final_reward": 178.3,
+      "trajectory_file": "/opt/airflow/models/rl/monte_carlo/vessel_1/trajectory_0.json"
+    },
+    {
+      "iteration": 1,
+      "steps": 128,
+      "destination_reached": true,
+      "hazard_hit": false,
+      "fuel_depleted": false,
+      "final_reward": 165.7,
+      "trajectory_file": "/opt/airflow/models/rl/monte_carlo/vessel_1/trajectory_1.json"
+    },
+    {
+      "iteration": 2,
+      "steps": 117,
+      "destination_reached": true,
+      "hazard_hit": false,
+      "fuel_depleted": false,
+      "final_reward": 183.2,
+      "trajectory_file": "/opt/airflow/models/rl/monte_carlo/vessel_1/trajectory_2.json"
+    },
+    {
+      "iteration": 3,
+      "steps": 142,
+      "destination_reached": true,
+      "hazard_hit": false,
+      "fuel_depleted": false,
+      "final_reward": 171.8,
+      "trajectory_file": "/opt/airflow/models/rl/monte_carlo/vessel_1/trajectory_3.json"
+    },
+    {
+      "iteration": 4,
+      "steps": 105,
+      "destination_reached": false,
+      "hazard_hit": true,
+      "fuel_depleted": false,
+      "final_reward": 98.5,
+      "trajectory_file": "/opt/airflow/models/rl/monte_carlo/vessel_1/trajectory_4.json"
+    },
+    {
+      "iteration": 5,
+      "steps": 138,
+      "destination_reached": true,
+      "hazard_hit": false,
+      "fuel_depleted": false,
+      "final_reward": 169.4,
+      "trajectory_file": "/opt/airflow/models/rl/monte_carlo/vessel_1/trajectory_5.json"
+    },
+    {
+      "iteration": 6,
+      "steps": 127,
+      "destination_reached": true,
+      "hazard_hit": false,
+      "fuel_depleted": false,
+      "final_reward": 174.2,
+      "trajectory_file": "/opt/airflow/models/rl/monte_carlo/vessel_1/trajectory_6.json"
+    },
+    {
+      "iteration": 7,
+      "steps": 112,
+      "destination_reached": false,
+      "hazard_hit": false,
+      "fuel_depleted": true,
+      "final_reward": 112.8,
+      "trajectory_file": "/opt/airflow/models/rl/monte_carlo/vessel_1/trajectory_7.json"
+    },
+    {
+      "iteration": 8,
+      "steps": 133,
+      "destination_reached": true,
+      "hazard_hit": false,
+      "fuel_depleted": false,
+      "final_reward": 180.1,
+      "trajectory_file": "/opt/airflow/models/rl/monte_carlo/vessel_1/trajectory_8.json"
+    },
+    {
+      "iteration": 9,
+      "steps": 120,
+      "destination_reached": true,
+      "hazard_hit": false,
+      "fuel_depleted": false,
+      "final_reward": 173.5,
+      "trajectory_file": "/opt/airflow/models/rl/monte_carlo/vessel_1/trajectory_9.json"
+    }
+  ]
+} 
