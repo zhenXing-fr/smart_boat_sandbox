@@ -40,14 +40,14 @@ with DAG(
         task_id="check_kafka_topics",
         bash_command=f"""
             echo "Checking Kafka topics..."
-            TOPICS=$(docker exec -it docker-kafka-1 kafka-topics --bootstrap-server localhost:9092 --list)
+            TOPICS=$(docker exec -it kafka kafka-topics --bootstrap-server localhost:9092 --list)
             if [[ $TOPICS != *"vessel_sailing_data"* ]]; then
                 echo "vessel_sailing_data topic does not exist!"
                 exit 1
             fi
             if [[ $TOPICS != *"processed_sailing_data"* ]]; then
                 echo "Creating processed_sailing_data topic..."
-                docker exec -it docker-kafka-1 kafka-topics --bootstrap-server localhost:9092 --create --topic processed_sailing_data --partitions 3 --replication-factor 1
+                docker exec -it kafka kafka-topics --bootstrap-server localhost:9092 --create --topic processed_sailing_data --partitions 3 --replication-factor 1
             fi
             echo "Kafka topics check completed."
         """,
@@ -60,7 +60,7 @@ with DAG(
             echo "Starting sailing data processor..."
             cd {PROJECT_PATH}
             source .venv/bin/activate
-            python -m src.maritime_rl.processors.sailing_processor \
+            python -m src.maritime.processors.sailing_processor \
                 --bootstrap-servers localhost:9093 \
                 --schema-registry-url http://localhost:8081 \
                 --input-topic vessel_sailing_data \
@@ -79,7 +79,7 @@ with DAG(
         
         # Run a Kafka consumer to get a sample of processed messages
         cmd = [
-            "docker", "exec", "-it", "docker-kafka-1",
+            "docker", "exec", "-it", "kafka",
             "kafka-console-consumer",
             "--bootstrap-server", "localhost:9092",
             "--topic", "processed_sailing_data",

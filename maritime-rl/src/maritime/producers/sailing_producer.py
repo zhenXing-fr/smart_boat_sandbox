@@ -12,9 +12,9 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
 
-from src.maritime_rl.data.generators import VesselDataGenerator
-from src.maritime_rl.producers.base_producer import BaseProducer
-from src.maritime_rl.schemas.sailing import SAILING_SCHEMA
+from src.maritime.data.generators import VesselDataGenerator
+from src.maritime.producers.base_producer import BaseProducer
+from src.maritime.schemas.sailing import SAILING_SCHEMA
 
 logger = logging.getLogger(__name__)
 

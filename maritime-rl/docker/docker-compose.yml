@@ -127,28 +127,6 @@ services:
     networks:
       - maritime-network
 
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: pgadmin
-    ports:
-      - "5050:80"
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@maritime.com
-      PGADMIN_DEFAULT_PASSWORD: maritime_admin
-      PGADMIN_CONFIG_SERVER_MODE: "True"
-    volumes:
-      - pgadmin-data:/var/lib/pgadmin
-    depends_on:
-      - timescaledb
-    networks:
-      - maritime-network
-    healthcheck:
-      test: ["CMD", "wget", "-O", "-", "http://localhost:80/misc/ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
   # Airflow services
   airflow-postgres:
     image: postgres:13
@@ -267,4 +245,3 @@ networks:
 volumes:
   timescaledb-data:
   postgres-db-volume:
-  pgadmin-data: 

@@ -77,13 +77,9 @@ maritime-rl/
 │       └── visualization/ # Dashboard and visualization
 ├── docker/                # Docker configuration
 │   ├── docker-compose.yml         # Main services
-│   ├── docker-compose-airflow.yml # Airflow services
 │   └── init-db.sql                # Database initialization
 ├── scripts/               # Helper scripts
-│   ├── start_producer.sh  # Start data producers
-│   ├── start_airflow.sh   # Start Airflow services
-│   ├── start_dashboard.sh # Start visualization dashboard
-│   └── psql.sh            # Connect to TimescaleDB
+│   └── start_services_sequences.sh   # Launch all services in sequences
 ├── dags/                  # Airflow DAGs
 ├── .env.example           # Environment variables template
 ├── .gitignore             # Git ignore file
@@ -99,7 +95,7 @@ The project uses several services that run in Docker containers:
 
 1. Start all services:
    ```bash
-   docker-compose -f docker/docker-compose.yml up -d
+   ./script/start_services_sequential.sh
    ```
 
    This will start:
@@ -108,15 +104,9 @@ The project uses several services that run in Docker containers:
    - Schema Registry
    - Kafka UI
    - TimescaleDB
-
-2. If services fail to start properly, try starting them individually:
-   ```bash
-   docker-compose -f docker/docker-compose.yml up -d zookeeper
-   docker-compose -f docker/docker-compose.yml up -d kafka
-   docker-compose -f docker/docker-compose.yml up -d schema-registry
-   docker-compose -f docker/docker-compose.yml up -d kafka-ui
-   docker-compose -f docker/docker-compose.yml up -d timescaledb
-   ```
+   - Airflow-postgres
+   - Airflow-scheduler
+   - Airflow-webserver
 
 ### Accessing the Services
 
@@ -130,25 +120,7 @@ The project uses several services that run in Docker containers:
 
 ## Running the Data Pipeline
 
-### 1. Using Convenience Scripts
-
-The project includes scripts to easily start different components:
-
-```bash
-# Start infrastructure services and producers
-./scripts/start_producer.sh
-
-# Start Airflow for pipeline orchestration
-./scripts/start_airflow.sh
-
-# Start the visualization dashboard
-./scripts/start_dashboard.sh
-
-# Connect to TimescaleDB
-./scripts/psql.sh
-```
-
-### 2. Manual Data Producer Start
+### 1. Manual Data Producer Start
 
 Run the sailing data producer to generate synthetic vessel data:
 
